@@ -12,21 +12,20 @@ import { UserPlus } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const AddMember = () => {
-  const { plans, addMember } = useLibrary();
+  const { addMember } = useLibrary();
   const navigate = useNavigate();
   const [form, setForm] = useState({
     fullName: '', phone: '', countryCode: '+91', address: '', idProofNumber: '',
-    planId: '', feesPaid: '', startDate: format(new Date(), 'yyyy-MM-dd'),
+    months: '', feesPaid: '', startDate: format(new Date(), 'yyyy-MM-dd'),
   });
 
-  const selectedPlan = plans.find(p => p.id === form.planId);
-  const expiryDate = selectedPlan && form.startDate
-    ? format(addMonths(new Date(form.startDate), selectedPlan.durationMonths), 'yyyy-MM-dd')
+  const expiryDate = form.months && form.startDate
+    ? format(addMonths(new Date(form.startDate), Number(form.months)), 'yyyy-MM-dd')
     : '';
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.fullName || !form.phone || !form.planId || !form.startDate) {
+    if (!form.fullName || !form.phone || !form.months || !form.startDate) {
       toast.error('Please fill all required fields');
       return;
     }
@@ -36,8 +35,8 @@ const AddMember = () => {
       countryCode: form.countryCode,
       address: form.address,
       idProofNumber: form.idProofNumber,
-      planId: form.planId,
-      feesPaid: Number(form.feesPaid) || selectedPlan?.price || 0,
+      months: Number(form.months),
+      feesPaid: Number(form.feesPaid) || 0,
       startDate: form.startDate,
       expiryDate,
       status: 'Active',
@@ -85,10 +84,12 @@ const AddMember = () => {
               <Input value={form.idProofNumber} onChange={e => setForm(f => ({ ...f, idProofNumber: e.target.value }))} placeholder="Aadhaar / PAN / DL" />
             </div>
             <div>
-              <Label>Membership Plan *</Label>
-              <Select value={form.planId} onValueChange={v => setForm(f => ({ ...f, planId: v, feesPaid: String(plans.find(p => p.id === v)?.price || '') }))}>
-                <SelectTrigger><SelectValue placeholder="Select a plan" /></SelectTrigger>
-                <SelectContent>{plans.map(p => <SelectItem key={p.id} value={p.id}>{p.name} — ₹{p.price}</SelectItem>)}</SelectContent>
+              <Label>Membership Duration *</Label>
+              <Select value={form.months} onValueChange={v => setForm(f => ({ ...f, months: v }))}>
+                <SelectTrigger><SelectValue placeholder="Select months" /></SelectTrigger>
+                <SelectContent>
+                  {[1, 2, 3, 6, 12].map(m => <SelectItem key={m} value={String(m)}>{m} month{m > 1 ? 's' : ''}</SelectItem>)}
+                </SelectContent>
               </Select>
             </div>
             <div>

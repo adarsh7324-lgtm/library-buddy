@@ -8,8 +8,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import Dashboard from "./pages/Dashboard";
 import Members from "./pages/Members";
 import AddMember from "./pages/AddMember";
-import Plans from "./pages/Plans";
-import Revenue from "./pages/Revenue";
+import Payments from "./pages/Payments";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -27,8 +26,7 @@ const AppRoutes = () => (
     <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
     <Route path="/members" element={<ProtectedRoute><Members /></ProtectedRoute>} />
     <Route path="/add-member" element={<ProtectedRoute><AddMember /></ProtectedRoute>} />
-    <Route path="/plans" element={<ProtectedRoute><Plans /></ProtectedRoute>} />
-    <Route path="/revenue" element={<ProtectedRoute><Revenue /></ProtectedRoute>} />
+    <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
