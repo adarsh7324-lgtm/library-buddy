@@ -2,26 +2,17 @@ import { NavLink } from '@/components/NavLink';
 import { useLibrary } from '@/context/LibraryContext';
 import { useNavigate } from 'react-router-dom';
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarFooter,
-  useSidebar,
+  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
+  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter, useSidebar,
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, Users, UserPlus, CreditCard, TrendingUp, LogOut, BookOpen } from 'lucide-react';
+import { LayoutDashboard, Users, UserPlus, IndianRupee, LogOut, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const navItems = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
   { title: 'Members', url: '/members', icon: Users },
   { title: 'Add Member', url: '/add-member', icon: UserPlus },
-  { title: 'Plans', url: '/plans', icon: CreditCard },
-  { title: 'Revenue', url: '/revenue', icon: TrendingUp },
+  { title: 'Payments', url: '/payments', icon: IndianRupee },
 ];
 
 export function AppSidebar() {
@@ -30,10 +21,7 @@ export function AppSidebar() {
   const { logout } = useLibrary();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
+  const handleLogout = () => { logout(); navigate('/login'); };
 
   return (
     <Sidebar collapsible="icon">
