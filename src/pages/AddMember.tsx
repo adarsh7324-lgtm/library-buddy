@@ -23,36 +23,40 @@ const AddMember = () => {
     ? format(addMonths(new Date(form.startDate), Number(form.months)), 'yyyy-MM-dd')
     : '';
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.fullName || !form.phone || !form.months || !form.startDate) {
       toast.error('Please fill all required fields');
       return;
     }
-    const newMemberId = addMember({
-      fullName: form.fullName,
-      phone: form.phone,
-      countryCode: form.countryCode,
-      address: form.address,
-      idProofNumber: form.idProofNumber,
-      months: Number(form.months),
-      feesPaid: Number(form.feesPaid) || 0,
-      startDate: form.startDate,
-      expiryDate,
-      status: 'Active',
-    });
-
-    if (Number(form.feesPaid) > 0) {
-      addPayment({
-        memberId: newMemberId,
-        amount: Number(form.feesPaid),
+    try {
+      const newMemberId = await addMember({
+        fullName: form.fullName,
+        phone: form.phone,
+        countryCode: form.countryCode,
+        address: form.address,
+        idProofNumber: form.idProofNumber,
         months: Number(form.months),
-        date: form.startDate,
-        note: 'Initial Registration Fee',
+        feesPaid: Number(form.feesPaid) || 0,
+        startDate: form.startDate,
+        expiryDate,
+        status: 'Active',
       });
+
+      if (Number(form.feesPaid) > 0) {
+        await addPayment({
+          memberId: newMemberId,
+          amount: Number(form.feesPaid),
+          months: Number(form.months),
+          date: form.startDate,
+          note: 'Initial Registration Fee',
+        });
+      }
+      toast.success('Member added successfully!');
+      navigate('/members');
+    } catch (error) {
+      toast.error('Failed to add member');
     }
-    toast.success('Member added successfully!');
-    navigate('/members');
   };
 
   return (

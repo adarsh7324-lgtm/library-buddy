@@ -33,17 +33,25 @@ const Members = () => {
     return true;
   });
 
-  const handleUpgrade = () => {
+  const handleUpgrade = async () => {
     if (!upgradingId || !upgradeMonths) { toast.error('Select months'); return; }
-    upgradeMember(upgradingId, Number(upgradeMonths));
-    toast.success(`Membership extended by ${upgradeMonths} month(s)`);
-    setUpgradingId(null);
-    setUpgradeMonths('');
+    try {
+      await upgradeMember(upgradingId, Number(upgradeMonths));
+      toast.success(`Membership extended by ${upgradeMonths} month(s)`);
+      setUpgradingId(null);
+      setUpgradeMonths('');
+    } catch (error) {
+      toast.error('Failed to extend membership');
+    }
   };
 
-  const handleDelete = (id: string) => {
-    deleteMember(id);
-    toast.success('Member deleted');
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteMember(id);
+      toast.success('Member deleted');
+    } catch (error) {
+      toast.error('Failed to delete member');
+    }
   };
 
   const filters: FilterType[] = ['All', 'Active', 'Expired', 'Expiring Soon'];

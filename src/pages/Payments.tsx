@@ -15,22 +15,26 @@ const Payments = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ memberId: '', amount: '', months: '', note: '' });
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.memberId || !form.amount || !form.months) {
       toast.error('Please fill all required fields');
       return;
     }
-    addPayment({
-      memberId: form.memberId,
-      amount: Number(form.amount),
-      months: Number(form.months),
-      date: format(new Date(), 'yyyy-MM-dd'),
-      note: form.note,
-    });
-    upgradeMember(form.memberId, Number(form.months));
-    toast.success('Payment registered & membership extended');
-    setDialogOpen(false);
-    setForm({ memberId: '', amount: '', months: '', note: '' });
+    try {
+      await addPayment({
+        memberId: form.memberId,
+        amount: Number(form.amount),
+        months: Number(form.months),
+        date: format(new Date(), 'yyyy-MM-dd'),
+        note: form.note,
+      });
+      await upgradeMember(form.memberId, Number(form.months));
+      toast.success('Payment registered & membership extended');
+      setDialogOpen(false);
+      setForm({ memberId: '', amount: '', months: '', note: '' });
+    } catch (error) {
+      toast.error('Failed to register payment');
+    }
   };
 
   const sortedPayments = [...payments].sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
