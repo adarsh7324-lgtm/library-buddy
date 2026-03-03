@@ -25,6 +25,59 @@ export interface Payment {
   note: string;
 }
 
+// --- Snake_case <-> camelCase mapping helpers ---
+function memberFromDb(row: any): Member {
+  return {
+    id: row.id,
+    fullName: row.full_name,
+    phone: row.phone,
+    countryCode: row.country_code,
+    address: row.address,
+    idProofNumber: row.id_proof_number,
+    months: row.months,
+    feesPaid: row.fees_paid,
+    startDate: row.start_date,
+    expiryDate: row.expiry_date,
+    status: row.status,
+  };
+}
+
+function memberToDb(member: Partial<Member>): Record<string, any> {
+  const map: Record<string, any> = {};
+  if (member.fullName !== undefined) map.full_name = member.fullName;
+  if (member.phone !== undefined) map.phone = member.phone;
+  if (member.countryCode !== undefined) map.country_code = member.countryCode;
+  if (member.address !== undefined) map.address = member.address;
+  if (member.idProofNumber !== undefined) map.id_proof_number = member.idProofNumber;
+  if (member.months !== undefined) map.months = member.months;
+  if (member.feesPaid !== undefined) map.fees_paid = member.feesPaid;
+  if (member.startDate !== undefined) map.start_date = member.startDate;
+  if (member.expiryDate !== undefined) map.expiry_date = member.expiryDate;
+  if (member.status !== undefined) map.status = member.status;
+  return map;
+}
+
+function paymentFromDb(row: any): Payment {
+  return {
+    id: row.id,
+    memberId: row.member_id,
+    amount: row.amount,
+    months: row.months,
+    date: row.date,
+    note: row.note,
+  };
+}
+
+function paymentToDb(payment: Partial<Payment>): Record<string, any> {
+  const map: Record<string, any> = {};
+  if (payment.memberId !== undefined) map.member_id = payment.memberId;
+  if (payment.amount !== undefined) map.amount = payment.amount;
+  if (payment.months !== undefined) map.months = payment.months;
+  if (payment.date !== undefined) map.date = payment.date;
+  if (payment.note !== undefined) map.note = payment.note;
+  return map;
+}
+
 interface LibraryContextType {
   members: Member[];
   payments: Payment[];
@@ -56,11 +109,16 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         supabase.from('payments').select('*'),
       ]);
 
-      if (membersRes.data) {
-        setMembers(membersRes.data as Member[]);
+      if (membersRes.error) {
+        console.error('Error fetching members:', membersRes.error);
+      } else if (membersRes.data) {
+        setMembers(membersRes.data.map(memberFromDb));
       }
-      if (paymentsRes.data) {
-        setPayments(paymentsRes.data as Payment[]);
+
+      if (paymentsRes.error) {
+        console.error('Error fetching payments:', paymentsRes.error);
+      } else if (paymentsRes.data) {
+        setPayments(paymentsRes.data.map(paymentFromDb));
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -74,7 +132,6 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   }, [fetchData]);
 
   const login = useCallback((email: string, password: string) => {
-    // Keep local simple auth for now unless requested
     if (email === 'admin@librarypro.com' && password === 'admin123') {
       setIsAuthenticated(true);
       return true;
@@ -85,18 +142,20 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => setIsAuthenticated(false), []);
 
   const addMember = useCallback(async (member: Omit<Member, 'id'>) => {
-    const { data, error } = await supabase.from('members').insert([member]).select().single();
+    const dbData = memberToDb(member);
+    const { data, error } = await supabase.from('members').insert([dbData]).select().single();
     if (error) {
       console.error('Error adding member:', error);
       throw error;
     }
-
-    setMembers(prev => [...prev, data]);
-    return data.id;
+    const mapped = memberFromDb(data);
+    setMembers(prev => [...prev, mapped]);
+    return mapped.id;
   }, []);
 
   const updateMember = useCallback(async (id: string, data: Partial<Member>) => {
-    const { error } = await supabase.from('members').update(data).eq('id', id);
+    const dbData = memberToDb(data);
+    const { error } = await supabase.from('members').update(dbData).eq('id', id);
     if (error) {
       console.error('Error updating member:', error);
       throw error;
@@ -121,13 +180,14 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     const baseDate = currentExpiry > new Date() ? currentExpiry : new Date();
     const newExpiry = addMonths(baseDate, additionalMonths);
 
-    const updateData = {
+    const updateData: Partial<Member> = {
       months: member.months + additionalMonths,
       expiryDate: format(newExpiry, 'yyyy-MM-dd'),
-      status: 'Active' as const,
+      status: 'Active',
     };
 
-    const { error } = await supabase.from('members').update(updateData).eq('id', id);
+    const dbData = memberToDb(updateData);
+    const { error } = await supabase.from('members').update(dbData).eq('id', id);
     if (error) {
       console.error('Error upgrading member:', error);
       throw error;
@@ -140,12 +200,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   }, [members]);
 
   const addPayment = useCallback(async (payment: Omit<Payment, 'id'>) => {
-    const { data, error } = await supabase.from('payments').insert([payment]).select().single();
+    const dbData = paymentToDb(payment);
+    const { data, error } = await supabase.from('payments').insert([dbData]).select().single();
     if (error) {
       console.error('Error adding payment:', error);
       throw error;
     }
-    setPayments(prev => [...prev, data]);
+    setPayments(prev => [...prev, paymentFromDb(data)]);
   }, []);
 
   return (
