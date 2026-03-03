@@ -98,7 +98,9 @@ const LibraryContext = createContext<LibraryContextType | undefined>(undefined);
 export function LibraryProvider({ children }: { children: ReactNode }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return sessionStorage.getItem('librarypro_auth') === 'true';
+  });
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -134,20 +136,26 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const login = useCallback((email: string, password: string) => {
     if (email === 'admin@librarypro.com' && password === 'admin123') {
       setIsAuthenticated(true);
+      sessionStorage.setItem('librarypro_auth', 'true');
       return true;
     }
     return false;
   }, []);
 
-  const logout = useCallback(() => setIsAuthenticated(false), []);
+  const logout = useCallback(() => {
+    setIsAuthenticated(false);
+    sessionStorage.removeItem('librarypro_auth');
+  }, []);
 
   const addMember = useCallback(async (member: Omit<Member, 'id'>) => {
     const dbData = memberToDb(member);
+    console.log('Adding member with data:', dbData);
     const { data, error } = await supabase.from('members').insert([dbData]).select().single();
     if (error) {
-      console.error('Error adding member:', error);
+      console.error('Error adding member:', error.message, error.details, error.hint);
       throw error;
     }
+    console.log('Member added successfully:', data);
     const mapped = memberFromDb(data);
     setMembers(prev => [...prev, mapped]);
     return mapped.id;
