@@ -10,9 +10,11 @@ const Dashboard = () => {
   const activeMembers = members.filter(m => m.status === 'Active');
   const expiredMembers = members.filter(m => m.status === 'Expired');
   const expiringSoon = members.filter(m => {
-    if (m.status !== 'Active') return false;
-    const days = differenceInDays(parseISO(m.expiryDate), today);
-    return days >= 0 && days <= 7;
+    if (m.status !== 'Active' || !m.expiryDate) return false;
+    try {
+      const days = differenceInDays(parseISO(m.expiryDate), today);
+      return days >= 0 && days <= 7;
+    } catch { return false; }
   });
 
   const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
@@ -24,7 +26,13 @@ const Dashboard = () => {
     { label: 'Total Revenue', value: `₹${totalRevenue.toLocaleString()}`, icon: TrendingUp, color: 'text-primary' },
   ];
 
-  const recentMembers = [...members].sort((a, b) => parseISO(b.startDate).getTime() - parseISO(a.startDate).getTime()).slice(0, 5);
+  const recentMembers = [...members]
+    .filter(m => m.startDate)
+    .sort((a, b) => {
+      try { return parseISO(b.startDate).getTime() - parseISO(a.startDate).getTime(); }
+      catch { return 0; }
+    })
+    .slice(0, 5);
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
@@ -52,7 +60,7 @@ const Dashboard = () => {
             <div key={member.id} className="flex items-center justify-between py-2 border-b border-border/40 last:border-0">
               <div>
                 <p className="font-medium text-sm text-foreground">{member.fullName}</p>
-                <p className="text-xs text-muted-foreground">{member.months} month{member.months > 1 ? 's' : ''} • Joined {format(parseISO(member.startDate), 'MMM d, yyyy')}</p>
+                <p className="text-xs text-muted-foreground">{member.months} month{member.months > 1 ? 's' : ''} • Joined {member.startDate ? format(parseISO(member.startDate), 'MMM d, yyyy') : 'N/A'}</p>
               </div>
               <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${member.status === 'Active' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}>
                 {member.status}
