@@ -82,10 +82,27 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
     const membersQuery = query(collection(db, 'members'), where('libraryId', '==', activeLibraryId));
     const unsubscribeMembers = onSnapshot(membersQuery, (snapshot) => {
-      const membersData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Member[];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Start of today
+
+      const membersData = snapshot.docs.map(doc => {
+        const data = doc.data() as Omit<Member, 'id'>;
+        const expiryDate = new Date(data.expiryDate);
+        expiryDate.setHours(0, 0, 0, 0);
+
+        let status = data.status;
+        if (expiryDate < today) {
+          status = 'Expired';
+        } else {
+          status = 'Active';
+        }
+
+        return {
+          id: doc.id,
+          ...data,
+          status
+        };
+      }) as Member[];
       setMembers(membersData);
       setLoading(false); // Stop loading once first members arrive
     }, (error) => {

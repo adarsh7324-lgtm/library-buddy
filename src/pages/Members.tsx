@@ -63,13 +63,12 @@ const Members = () => {
     const tableData = filtered.map(m => [
       m.fullName,
       `${m.countryCode} ${m.phone}`,
-      `${m.months} month(s)`,
       format(parseISO(m.expiryDate), 'MMM d, yyyy'),
       m.status
     ]);
 
     autoTable(doc, {
-      head: [['Name', 'Phone', 'Duration', 'Expiry', 'Status']],
+      head: [['Name', 'Phone', 'Expiry', 'Status']],
       body: tableData,
       startY: 20,
       theme: 'grid',
@@ -115,7 +114,6 @@ const Members = () => {
             <tr className="border-b border-border/60">
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Name</th>
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Phone</th>
-              <th className="text-left py-3 px-4 font-medium text-muted-foreground">Months</th>
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Expiry</th>
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
               <th className="text-right py-3 px-4 font-medium text-muted-foreground">Actions</th>
@@ -126,7 +124,6 @@ const Members = () => {
               <motion.tr key={member.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }} className="border-b border-border/30 hover:bg-muted/30 transition-colors">
                 <td className="py-3 px-4 font-medium text-foreground">{member.fullName}</td>
                 <td className="py-3 px-4 text-muted-foreground">{member.countryCode} {member.phone}</td>
-                <td className="py-3 px-4 text-muted-foreground">{member.months}</td>
                 <td className="py-3 px-4 text-muted-foreground">{format(parseISO(member.expiryDate), 'MMM d, yyyy')}</td>
                 <td className="py-3 px-4">
                   <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${member.status === 'Active' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}>
@@ -166,7 +163,7 @@ const Members = () => {
                 {member.status}
               </span>
             </div>
-            <p className="text-xs text-muted-foreground mb-3">{member.months} month{member.months > 1 ? 's' : ''} • Expires {format(parseISO(member.expiryDate), 'MMM d, yyyy')}</p>
+            <p className="text-xs text-muted-foreground mb-3">Expires {format(parseISO(member.expiryDate), 'MMM d, yyyy')}</p>
             <div className="flex gap-2">
               <Button size="sm" variant="outline" className="text-xs" onClick={() => { setUpgradingId(member.id); setUpgradeMonths(''); }}><ArrowUpCircle className="w-3 h-3 mr-1" /> Upgrade</Button>
               <Button size="sm" variant="outline" className="text-xs text-destructive" onClick={() => handleDelete(member.id)}><Trash2 className="w-3 h-3 mr-1" /> Delete</Button>
