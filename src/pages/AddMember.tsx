@@ -20,109 +20,37 @@ const AddMember = () => {
   });
 
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
-  const [cameraActive, setCameraActive] = useState(false);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
-
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  const startCamera = async (mode: 'user' | 'environment') => {
-    // 1. Check if we are in a secure context (HTTPS or localhost)
-    if (!window.isSecureContext) {
-      toast.error('Camera requires a secure connection (HTTPS) or localhost.');
-      return;
-    }
-
-    // 2. Check if the browser supports mediaDevices
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      toast.error('Your browser does not support camera access.');
-      return;
-    }
-
-    try {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
-        tracks.forEach(track => track.stop());
-      }
-
-      // First try to just get ANY video to prompt for permissions
-      let stream: MediaStream;
-
-      try {
-        // This is the most widely supported constraint for mobile
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: mode }
-        });
-      } catch (err: any) {
-        console.warn("Specific facingMode failed, trying generic video...", err);
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        // If generic succeeds, it means the device doesn't understand 'facingMode' constraints
-      }
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-      }
-
-      setCameraActive(true);
-      setFacingMode(mode);
-    } catch (err: any) {
-      console.error("Error accessing camera:", err);
-
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        toast.error('Camera permission denied. Please allow camera access in your browser settings.');
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        toast.error('No camera found on your device.');
-      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-        toast.error('Camera is already in use by another application.');
-      } else {
-        toast.error(`Camera error: ${err.message || err.name || 'Unknown error'}`);
-      }
-    }
-  };
-
-  const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
-      tracks.forEach(track => track.stop());
-      videoRef.current.srcObject = null;
-    }
-    setCameraActive(false);
-  };
-
-  const flipCamera = () => {
-    startCamera(facingMode === 'user' ? 'environment' : 'user');
-  };
-
-  const capturePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const context = canvasRef.current.getContext('2d');
-      if (context) {
-        const MAX_WIDTH = 300;
-        const scale = MAX_WIDTH / videoRef.current.videoWidth;
-        const targetWidth = MAX_WIDTH;
-        const targetHeight = videoRef.current.videoHeight * scale;
-
-        canvasRef.current.width = targetWidth;
-        canvasRef.current.height = targetHeight;
-        context.drawImage(videoRef.current, 0, 0, targetWidth, targetHeight);
-
-        // Use lower quality for smaller base64 string to fit in Firestore
-        const dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.6);
-        setPhotoBase64(dataUrl);
-        stopCamera();
-      }
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        // Here we could compress the image if needed, but for simplicity we'll just use the base64
+        // Ideally we compress it by drawing it to a canvas just like before.
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            const MAX_WIDTH = 300;
+            const scale = MAX_WIDTH / img.width;
+            canvas.width = MAX_WIDTH;
+            canvas.height = img.height * scale;
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            setPhotoBase64(canvas.toDataURL('image/jpeg', 0.6));
+          }
+        };
+        img.src = reader.result as string;
+      };
+      reader.readAsDataURL(file);
     }
   };
 
   const retakePhoto = () => {
     setPhotoBase64(null);
-    startCamera(facingMode);
   };
 
-  useEffect(() => {
-    return () => stopCamera();
-  }, []);
+
 
   const expiryDate = form.months && form.startDate
     ? format(addMonths(new Date(form.startDate), Number(form.months)), 'yyyy-MM-dd')
@@ -184,27 +112,20 @@ const AddMember = () => {
           <div className="flex flex-col items-center justify-center space-y-4 mb-6">
             <Label className="text-lg font-semibold cursor-default">Profile Photograph</Label>
 
-            {!cameraActive && !photoBase64 && (
-              <div className="w-32 h-32 sm:w-48 sm:h-48 border-2 border-dashed border-muted-foreground/30 rounded-lg flex flex-col items-center justify-center bg-muted/20">
+            {!photoBase64 && (
+              <div className="w-32 h-32 sm:w-48 sm:h-48 border-2 border-dashed border-muted-foreground/30 rounded-lg flex flex-col items-center justify-center bg-muted/20 relative">
                 <Camera className="w-10 h-10 text-muted-foreground mb-2" />
-                <Button type="button" variant="outline" size="sm" onClick={() => startCamera('user')}>Open Camera</Button>
-              </div>
-            )}
-
-            {cameraActive && !photoBase64 && (
-              <div className="relative w-full max-w-[280px] sm:max-w-sm rounded-[2rem] sm:rounded-lg overflow-hidden bg-black aspect-[3/4] sm:aspect-video flex items-center justify-center shadow-lg mx-auto">
-                <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
-                <div className="absolute inset-x-0 bottom-4 flex justify-center gap-6 px-4">
-                  <Button type="button" variant="secondary" size="icon" className="rounded-full w-12 h-12 bg-white/20 hover:bg-white/30 backdrop-blur-md border-0 text-white" onClick={flipCamera}>
-                    <RefreshCcw className="w-5 h-5" />
-                  </Button>
-                  <Button type="button" variant="default" className="rounded-full w-16 h-16 bg-white hover:bg-white/90 shadow-xl border-[4px] border-white/20 p-0" onClick={capturePhoto}>
-                    <span className="sr-only">Capture</span>
-                  </Button>
-                  <Button type="button" variant="destructive" size="icon" className="rounded-full w-12 h-12 bg-red-500/80 hover:bg-red-500 backdrop-blur-md border-0 text-white" onClick={stopCamera}>
-                    <X className="w-5 h-5" />
-                  </Button>
-                </div>
+                <Label htmlFor="camera-upload" className="cursor-pointer bg-background border border-input hover:bg-accent hover:text-accent-foreground h-9 px-3 py-2 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium shadow-sm transition-colors">
+                  Open Camera
+                </Label>
+                <input
+                  id="camera-upload"
+                  type="file"
+                  accept="image/*"
+                  capture="user"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
               </div>
             )}
 
@@ -218,8 +139,6 @@ const AddMember = () => {
                 </div>
               </div>
             )}
-
-            <canvas ref={canvasRef} className="hidden" />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
