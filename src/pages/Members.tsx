@@ -29,8 +29,7 @@ const Members = () => {
     if (filter === 'Active') return m.status === 'Active';
     if (filter === 'Expired') return m.status === 'Expired';
     if (filter === 'Expiring Soon') {
-      const days = differenceInDays(parseISO(m.expiryDate), today);
-      return m.status === 'Active' && days >= 0 && days <= 7;
+      return m.status === 'Expiring Soon';
     }
     return true;
   });
@@ -126,7 +125,10 @@ const Members = () => {
                 <td className="py-3 px-4 text-muted-foreground">{member.countryCode} {member.phone}</td>
                 <td className="py-3 px-4 text-muted-foreground">{format(parseISO(member.expiryDate), 'MMM d, yyyy')}</td>
                 <td className="py-3 px-4">
-                  <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${member.status === 'Active' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}>
+                  <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${member.status === 'Active' ? 'bg-success/10 text-success' :
+                      member.status === 'Expiring Soon' ? 'bg-warning/10 text-warning' :
+                        'bg-destructive/10 text-destructive'
+                    }`}>
                     {member.status}
                   </span>
                 </td>
@@ -159,7 +161,10 @@ const Members = () => {
                 <p className="font-medium text-foreground">{member.fullName}</p>
                 <p className="text-xs text-muted-foreground">{member.countryCode} {member.phone}</p>
               </div>
-              <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${member.status === 'Active' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}>
+              <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${member.status === 'Active' ? 'bg-success/10 text-success' :
+                  member.status === 'Expiring Soon' ? 'bg-warning/10 text-warning' :
+                    'bg-destructive/10 text-destructive'
+                }`}>
                 {member.status}
               </span>
             </div>

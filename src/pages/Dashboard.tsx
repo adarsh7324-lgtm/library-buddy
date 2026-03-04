@@ -2,27 +2,23 @@ import { useLibrary } from '@/context/LibraryContext';
 import { Users, UserX, AlertTriangle, TrendingUp, MessageSquare } from 'lucide-react';
 import { differenceInDays, parseISO, format } from 'date-fns';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const { members, payments } = useLibrary();
+  const navigate = useNavigate();
   const today = new Date();
 
   const activeMembers = members.filter(m => m.status === 'Active');
   const expiredMembers = members.filter(m => m.status === 'Expired');
-  const expiringSoon = members.filter(m => {
-    if (m.status !== 'Active' || !m.expiryDate) return false;
-    try {
-      const days = differenceInDays(parseISO(m.expiryDate), today);
-      return days >= 0 && days <= 7;
-    } catch { return false; }
-  });
+  const expiringSoon = members.filter(m => m.status === 'Expiring Soon');
 
   const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
 
   const stats = [
-    { label: 'Active Members', value: activeMembers.length, icon: Users, color: 'text-success' },
-    { label: 'Expired Members', value: expiredMembers.length, icon: UserX, color: 'text-destructive' },
-    { label: 'Expiring in 7 Days', value: expiringSoon.length, icon: AlertTriangle, color: 'text-warning' },
+    { label: 'Active Members', value: activeMembers.length, icon: Users, color: 'text-success', path: '/members' },
+    { label: 'Expired Members', value: expiredMembers.length, icon: UserX, color: 'text-destructive', path: '/reminders' },
+    { label: 'Expiring in 7 Days', value: expiringSoon.length, icon: AlertTriangle, color: 'text-warning', path: '/reminders' },
     { label: 'Total Revenue', value: `₹${totalRevenue.toLocaleString()}`, icon: TrendingUp, color: 'text-primary' },
   ];
 
@@ -43,7 +39,14 @@ const Dashboard = () => {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat, i) => (
-          <motion.div key={stat.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1, duration: 0.4 }} className="stat-card">
+          <motion.div
+            key={stat.label}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.1, duration: 0.4 }}
+            className={`stat-card ${stat.path ? 'cursor-pointer hover:border-primary/50' : ''}`}
+            onClick={() => stat.path && navigate(stat.path)}
+          >
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm text-muted-foreground">{stat.label}</span>
               <stat.icon className={`w-5 h-5 ${stat.color}`} />
@@ -62,7 +65,10 @@ const Dashboard = () => {
                 <p className="font-medium text-sm text-foreground">{member.fullName}</p>
                 <p className="text-xs text-muted-foreground">{member.months} month{member.months > 1 ? 's' : ''} • Joined {member.startDate ? format(parseISO(member.startDate), 'MMM d, yyyy') : 'N/A'}</p>
               </div>
-              <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${member.status === 'Active' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}>
+              <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${member.status === 'Active' ? 'bg-success/10 text-success' :
+                  member.status === 'Expiring Soon' ? 'bg-warning/10 text-warning' :
+                    'bg-destructive/10 text-destructive'
+                }`}>
                 {member.status}
               </span>
             </div>
