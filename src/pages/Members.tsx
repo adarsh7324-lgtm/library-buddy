@@ -63,12 +63,13 @@ const Members = () => {
       m.fullName,
       `${m.countryCode} ${m.phone}`,
       m.seatNumber || '-',
+      m.startDate ? format(parseISO(m.startDate), 'MMM d, yyyy') : '-',
       format(parseISO(m.expiryDate), 'MMM d, yyyy'),
       m.status
     ]);
 
     autoTable(doc, {
-      head: [['Name', 'Phone', 'Seat', 'Expiry', 'Status']],
+      head: [['Name', 'Phone', 'Seat', 'Join Date', 'Expiry', 'Status']],
       body: tableData,
       startY: 20,
       theme: 'grid',
@@ -115,6 +116,7 @@ const Members = () => {
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Name</th>
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Phone</th>
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Seat</th>
+              <th className="text-left py-3 px-4 font-medium text-muted-foreground">Join Date</th>
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Expiry</th>
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
               <th className="text-right py-3 px-4 font-medium text-muted-foreground">Actions</th>
@@ -126,6 +128,7 @@ const Members = () => {
                 <td className="py-3 px-4 font-medium text-foreground">{member.fullName}</td>
                 <td className="py-3 px-4 text-muted-foreground">{member.countryCode} {member.phone}</td>
                 <td className="py-3 px-4 text-muted-foreground">{member.seatNumber || '-'}</td>
+                <td className="py-3 px-4 text-muted-foreground">{member.startDate ? format(parseISO(member.startDate), 'MMM d, yyyy') : '-'}</td>
                 <td className="py-3 px-4 text-muted-foreground">{format(parseISO(member.expiryDate), 'MMM d, yyyy')}</td>
                 <td className="py-3 px-4">
                   <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${member.status === 'Active' ? 'bg-success/10 text-success' :
@@ -171,7 +174,7 @@ const Members = () => {
                 {member.status}
               </span>
             </div>
-            <p className="text-xs text-muted-foreground mb-3">Expires {format(parseISO(member.expiryDate), 'MMM d, yyyy')}</p>
+            <p className="text-xs text-muted-foreground mb-3">Joined {member.startDate ? format(parseISO(member.startDate), 'MMM d, yyyy') : '-'} • Expires {format(parseISO(member.expiryDate), 'MMM d, yyyy')}</p>
             <div className="flex gap-2">
               <Button size="sm" variant="outline" className="text-xs" onClick={() => { setUpgradingId(member.id); setUpgradeMonths(''); }}><ArrowUpCircle className="w-3 h-3 mr-1" /> Upgrade</Button>
               <Button size="sm" variant="outline" className="text-xs text-destructive" onClick={() => handleDelete(member.id)}><Trash2 className="w-3 h-3 mr-1" /> Delete</Button>
