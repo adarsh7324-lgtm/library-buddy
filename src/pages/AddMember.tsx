@@ -27,42 +27,57 @@ const AddMember = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const startCamera = async (mode: 'user' | 'environment') => {
+    // 1. Check if we are in a secure context (HTTPS or localhost)
+    if (!window.isSecureContext) {
+      toast.error('Camera requires a secure connection (HTTPS) or localhost.');
+      return;
+    }
+
+    // 2. Check if the browser supports mediaDevices
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      toast.error('Your browser does not support camera access.');
+      return;
+    }
+
     try {
       if (videoRef.current && videoRef.current.srcObject) {
         const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
         tracks.forEach(track => track.stop());
       }
 
-      const constraints = {
-        video: {
-          facingMode: mode,
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      };
+      // First try to just get ANY video to prompt for permissions
+      let stream: MediaStream;
 
       try {
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play();
-        }
-        setCameraActive(true);
-        setFacingMode(mode);
-      } catch (primaryErr: any) {
-        console.warn("Primary camera constraints failed, attempting fallback...", primaryErr);
-        // Fallback for mobile devices that might reject specific constraints
-        const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        if (videoRef.current) {
-          videoRef.current.srcObject = fallbackStream;
-          videoRef.current.play();
-        }
-        setCameraActive(true);
-        setFacingMode(mode); // It might not be the exact mode, but we activated it
+        // This is the most widely supported constraint for mobile
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: mode }
+        });
+      } catch (err: any) {
+        console.warn("Specific facingMode failed, trying generic video...", err);
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        // If generic succeeds, it means the device doesn't understand 'facingMode' constraints
       }
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+
+      setCameraActive(true);
+      setFacingMode(mode);
     } catch (err: any) {
       console.error("Error accessing camera:", err);
-      toast.error(`Camera error: ${err.message || 'Could not access camera'}`);
+
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        toast.error('Camera permission denied. Please allow camera access in your browser settings.');
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        toast.error('No camera found on your device.');
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        toast.error('Camera is already in use by another application.');
+      } else {
+        toast.error(`Camera error: ${err.message || err.name || 'Unknown error'}`);
+      }
     }
   };
 
