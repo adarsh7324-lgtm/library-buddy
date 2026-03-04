@@ -30,8 +30,10 @@ const Payments = () => {
         date: format(new Date(), 'yyyy-MM-dd'),
         note: form.note,
       });
-      await upgradeMember(form.memberId, Number(form.months));
-      toast.success('Payment registered & membership extended');
+      if (Number(form.months) > 0) {
+        await upgradeMember(form.memberId, Number(form.months));
+      }
+      toast.success('Payment registered successfully');
       setDialogOpen(false);
       setForm({ memberId: '', amount: '', months: '', note: '' });
     } catch (error) {
@@ -102,7 +104,7 @@ const Payments = () => {
                 <motion.tr key={payment.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }} className="border-b border-border/30 hover:bg-muted/30 transition-colors">
                   <td className="py-3 px-4 text-muted-foreground">{format(parseISO(payment.date), 'MMM d, yyyy')}</td>
                   <td className="py-3 px-4 font-medium text-foreground">{member?.fullName ?? 'Unknown'}</td>
-                  <td className="py-3 px-4 text-muted-foreground">{payment.months} month{payment.months > 1 ? 's' : ''}</td>
+                  <td className="py-3 px-4 text-muted-foreground">{payment.months} month{payment.months !== 1 ? 's' : ''}</td>
                   <td className="py-3 px-4 text-foreground font-medium">₹{payment.amount.toLocaleString()}</td>
                   <td className="py-3 px-4 text-muted-foreground">{payment.note || '—'}</td>
                 </motion.tr>
@@ -125,7 +127,7 @@ const Payments = () => {
               </div>
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{format(parseISO(payment.date), 'MMM d, yyyy')}</span>
-                <span>{payment.months} month{payment.months > 1 ? 's' : ''}</span>
+                <span>{payment.months} month{payment.months !== 1 ? 's' : ''}</span>
               </div>
               {payment.note && <p className="text-xs text-muted-foreground mt-1">{payment.note}</p>}
             </motion.div>
@@ -153,7 +155,7 @@ const Payments = () => {
               <Select value={form.months} onValueChange={v => setForm(f => ({ ...f, months: v }))}>
                 <SelectTrigger><SelectValue placeholder="Select months" /></SelectTrigger>
                 <SelectContent>
-                  {[1, 2, 3, 6, 12].map(m => <SelectItem key={m} value={String(m)}>{m} month{m > 1 ? 's' : ''}</SelectItem>)}
+                  {[0, 1, 2, 3, 6, 12].map(m => <SelectItem key={m} value={String(m)}>{m} month{m !== 1 ? 's' : ''}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

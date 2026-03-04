@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { addMonths, format } from 'date-fns';
 import { toast } from 'sonner';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 export interface Member {
   id: string;
+  libraryId: string;
   fullName: string;
   phone: string;
   countryCode: string;
@@ -20,6 +21,7 @@ export interface Member {
 
 export interface Payment {
   id: string;
+  libraryId: string;
   memberId: string;
   amount: number;
   months: number;
@@ -31,25 +33,32 @@ interface LibraryContextType {
   members: Member[];
   payments: Payment[];
   isAuthenticated: boolean;
+  activeLibraryId: string | null;
   login: (email: string, password: string) => boolean;
   logout: () => void;
-  addMember: (member: Omit<Member, 'id'>) => Promise<string>;
+  addMember: (member: Omit<Member, 'id' | 'libraryId'>) => Promise<string>;
   updateMember: (id: string, member: Partial<Member>) => Promise<void>;
   deleteMember: (id: string) => Promise<void>;
   upgradeMember: (id: string, additionalMonths: number) => Promise<void>;
-  addPayment: (payment: Omit<Payment, 'id'>) => Promise<void>;
+  addPayment: (payment: Omit<Payment, 'id' | 'libraryId'>) => Promise<void>;
   fetchData: () => Promise<void>;
   loading: boolean;
 }
 
 const LibraryContext = createContext<LibraryContextType | undefined>(undefined);
 
+const LIBRARIES = [
+  { id: 'librarypro', email: 'admin@librarypro.com', password: 'admin123' },
+  { id: 'alphalibrary', email: 'alphalibrary@coppercore.co', password: 'CopperCore#1' }
+];
+
 export function LibraryProvider({ children }: { children: ReactNode }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return sessionStorage.getItem('librarypro_auth') === 'true';
+  const [activeLibraryId, setActiveLibraryId] = useState<string | null>(() => {
+    return sessionStorage.getItem('librarypro_library_id');
   });
+  const isAuthenticated = !!activeLibraryId;
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -62,9 +71,17 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (!activeLibraryId) {
+      setMembers([]);
+      setPayments([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
 
-    const unsubscribeMembers = onSnapshot(collection(db, 'members'), (snapshot) => {
+    const membersQuery = query(collection(db, 'members'), where('libraryId', '==', activeLibraryId));
+    const unsubscribeMembers = onSnapshot(membersQuery, (snapshot) => {
       const membersData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -77,7 +94,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    const unsubscribePayments = onSnapshot(collection(db, 'payments'), (snapshot) => {
+    const paymentsQuery = query(collection(db, 'payments'), where('libraryId', '==', activeLibraryId));
+    const unsubscribePayments = onSnapshot(paymentsQuery, (snapshot) => {
       const paymentsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -91,32 +109,38 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       unsubscribeMembers();
       unsubscribePayments();
     };
-  }, []);
+  }, [activeLibraryId]);
 
   const login = useCallback((email: string, password: string) => {
-    if (email === 'admin@librarypro.com' && password === 'admin123') {
-      setIsAuthenticated(true);
-      sessionStorage.setItem('librarypro_auth', 'true');
+    const matchedAccount = LIBRARIES.find(lib => lib.email === email && lib.password === password);
+
+    if (matchedAccount) {
+      setActiveLibraryId(matchedAccount.id);
+      sessionStorage.setItem('librarypro_library_id', matchedAccount.id);
       return true;
     }
     return false;
   }, []);
 
   const logout = useCallback(() => {
-    setIsAuthenticated(false);
-    sessionStorage.removeItem('librarypro_auth');
+    setActiveLibraryId(null);
+    sessionStorage.removeItem('librarypro_library_id');
   }, []);
 
-  const addMember = useCallback(async (member: Omit<Member, 'id'>) => {
+  const addMember = useCallback(async (member: Omit<Member, 'id' | 'libraryId'>) => {
+    if (!activeLibraryId) throw new Error('Cannot add member: No active library session');
     try {
-      const docRef = await addDoc(collection(db, 'members'), member);
+      const docRef = await addDoc(collection(db, 'members'), {
+        ...member,
+        libraryId: activeLibraryId
+      });
       return docRef.id;
     } catch (error) {
       console.error('Error adding member:', error);
       toast.error('Failed to add member');
       throw error;
     }
-  }, []);
+  }, [activeLibraryId]);
 
   const updateMember = useCallback(async (id: string, data: Partial<Member>) => {
     try {
@@ -166,18 +190,22 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     }
   }, [members]);
 
-  const addPayment = useCallback(async (payment: Omit<Payment, 'id'>) => {
+  const addPayment = useCallback(async (payment: Omit<Payment, 'id' | 'libraryId'>) => {
+    if (!activeLibraryId) throw new Error('Cannot register payment: No active library session');
     try {
-      await addDoc(collection(db, 'payments'), payment);
+      await addDoc(collection(db, 'payments'), {
+        ...payment,
+        libraryId: activeLibraryId
+      });
     } catch (error) {
       console.error('Error adding payment:', error);
       toast.error('Failed to add payment');
       throw error;
     }
-  }, []);
+  }, [activeLibraryId]);
 
   return (
-    <LibraryContext.Provider value={{ members, payments, isAuthenticated, login, logout, addMember, updateMember, deleteMember, upgradeMember, addPayment, fetchData, loading }}>
+    <LibraryContext.Provider value={{ members, payments, isAuthenticated, activeLibraryId, login, logout, addMember, updateMember, deleteMember, upgradeMember, addPayment, fetchData, loading }}>
       {children}
     </LibraryContext.Provider>
   );
