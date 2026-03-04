@@ -32,18 +32,37 @@ const AddMember = () => {
         const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
         tracks.forEach(track => track.stop());
       }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: mode }
-      });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
+
+      const constraints = {
+        video: {
+          facingMode: mode,
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      };
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play();
+        }
+        setCameraActive(true);
+        setFacingMode(mode);
+      } catch (primaryErr: any) {
+        console.warn("Primary camera constraints failed, attempting fallback...", primaryErr);
+        // Fallback for mobile devices that might reject specific constraints
+        const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        if (videoRef.current) {
+          videoRef.current.srcObject = fallbackStream;
+          videoRef.current.play();
+        }
+        setCameraActive(true);
+        setFacingMode(mode); // It might not be the exact mode, but we activated it
       }
-      setCameraActive(true);
-      setFacingMode(mode);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error accessing camera:", err);
-      toast.error('Could not access camera');
+      toast.error(`Camera error: ${err.message || 'Could not access camera'}`);
     }
   };
 
