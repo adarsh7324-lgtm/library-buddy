@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
-import { addMonths, format } from 'date-fns';
+import { addMonths, format, differenceInDays } from 'date-fns';
 import { toast } from 'sonner';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -16,7 +16,7 @@ export interface Member {
   feesPaid: number;
   startDate: string;
   expiryDate: string;
-  status: 'Active' | 'Expired';
+  status: 'Active' | 'Expired' | 'Expiring Soon';
 }
 
 export interface Payment {
@@ -90,9 +90,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         const expiryDate = new Date(data.expiryDate);
         expiryDate.setHours(0, 0, 0, 0);
 
+        const daysDiff = differenceInDays(expiryDate, today);
+
         let status = data.status;
         if (expiryDate < today) {
           status = 'Expired';
+        } else if (daysDiff >= 0 && daysDiff <= 7) {
+          status = 'Expiring Soon';
         } else {
           status = 'Active';
         }

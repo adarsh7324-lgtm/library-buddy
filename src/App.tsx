@@ -11,6 +11,7 @@ import AddMember from "./pages/AddMember";
 import Payments from "./pages/Payments";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
+import Reminders from "./pages/Reminders";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +28,7 @@ const AppRoutes = () => (
     <Route path="/members" element={<ProtectedRoute><Members /></ProtectedRoute>} />
     <Route path="/add-member" element={<ProtectedRoute><AddMember /></ProtectedRoute>} />
     <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
+    <Route path="/reminders" element={<ProtectedRoute><Reminders /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
