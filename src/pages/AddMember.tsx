@@ -53,6 +53,13 @@ const AddMember = () => {
         });
       }
       toast.success('Member added successfully!');
+
+      const message = `*Congratulations ${form.fullName}!* 🎉\nYou are now a member of the library.\n\n*Membership Details:*\n📱 Phone: ${form.countryCode} ${form.phone}\n⏳ Duration: ${form.months} month(s)\n💰 Fees Paid: ₹${form.feesPaid || 0}\n📅 Join Date: ${format(new Date(form.startDate), 'dd MMM yyyy')}\n⌛ Expiry Date: ${format(new Date(expiryDate), 'dd MMM yyyy')}\n\nWelcome aboard! 📚`;
+
+      const encodedMessage = encodeURIComponent(message);
+      const waNumber = `${form.countryCode.replace('+', '')}${form.phone}`;
+      window.open(`https://wa.me/${waNumber}?text=${encodedMessage}`, '_blank');
+
       navigate('/members');
     } catch (error) {
       toast.error('Failed to add member');
