@@ -36,7 +36,7 @@ const Login = () => {
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
               <BookOpen className="w-5 h-5 text-primary-foreground" />
             </div>
-            <h1 className="text-2xl font-bold font-display text-foreground">LibraryPro</h1>
+            <h1 className="text-2xl font-bold font-display text-foreground">Library Buddy</h1>
           </div>
           <p className="text-center text-muted-foreground text-sm mb-8">Smart Library Management System</p>
 

@@ -32,7 +32,7 @@ export function AppSidebar() {
               <div className="w-6 h-6 rounded-lg bg-sidebar-primary flex items-center justify-center flex-shrink-0">
                 <BookOpen className="w-3.5 h-3.5 text-sidebar-primary-foreground" />
               </div>
-              {!collapsed && <span className="font-display font-bold text-sm text-sidebar-foreground">LibraryPro</span>}
+              {!collapsed && <span className="font-display font-bold text-sm text-sidebar-foreground">Library Buddy</span>}
             </div>
           </SidebarGroupLabel>
           <SidebarGroupContent className="mt-4">

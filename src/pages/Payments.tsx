@@ -23,17 +23,43 @@ const Payments = () => {
       return;
     }
     try {
+      const paymentDate = format(new Date(), 'yyyy-MM-dd');
       await addPayment({
         memberId: form.memberId,
         amount: Number(form.amount),
         months: Number(form.months),
-        date: format(new Date(), 'yyyy-MM-dd'),
+        date: paymentDate,
         note: form.note,
       });
+
       if (Number(form.months) > 0) {
         await upgradeMember(form.memberId, Number(form.months));
       }
+
       toast.success('Payment registered successfully');
+
+      // WhatsApp Redirect
+      const member = members.find(m => m.id === form.memberId);
+      if (member && member.phone) {
+        let message = `*Payment Confirmation* ✅\n\nDear ${member.fullName},\nWe have successfully received your payment.\n\n*Details:*\n💰 Amount: ₹${form.amount}\n`;
+
+        if (Number(form.months) > 0) {
+          message += `⏳ Membership Extended: ${form.months} month(s)\n`;
+        }
+
+        message += `📅 Date: ${format(new Date(paymentDate), 'dd MMM yyyy')}\n`;
+
+        if (form.note) {
+          message += `📝 Note: ${form.note}\n`;
+        }
+
+        message += `\nThank you for choosing Library Buddy! 📚`;
+
+        const encodedMessage = encodeURIComponent(message);
+        const waNumber = `${(member.countryCode || '+91').replace('+', '')}${member.phone}`;
+        window.open(`https://wa.me/${waNumber}?text=${encodedMessage}`, '_blank');
+      }
+
       setDialogOpen(false);
       setForm({ memberId: '', amount: '', months: '', note: '' });
     } catch (error) {
