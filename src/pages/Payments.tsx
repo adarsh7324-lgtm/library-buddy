@@ -7,8 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { Plus, IndianRupee, Calendar } from 'lucide-react';
+import { Plus, IndianRupee, Calendar, Download } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const Payments = () => {
   const { members, payments, addPayment, upgradeMember } = useLibrary();
@@ -39,14 +41,46 @@ const Payments = () => {
 
   const sortedPayments = [...payments].sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
 
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    doc.text('Payments History', 14, 15);
+
+    const tableData = sortedPayments.map(p => {
+      const member = members.find(m => m.id === p.memberId);
+      return [
+        format(parseISO(p.date), 'MMM d, yyyy'),
+        member?.fullName ?? 'Unknown',
+        `${p.months} month(s)`,
+        `Rs. ${p.amount}`,
+        p.note || '—'
+      ];
+    });
+
+    autoTable(doc, {
+      head: [['Date', 'Member Name', 'Duration', 'Amount', 'Note']],
+      body: tableData,
+      startY: 20,
+      theme: 'grid',
+      styles: { fontSize: 10 },
+      headStyles: { fillColor: [46, 204, 113] }
+    });
+
+    doc.save('library_payments.pdf');
+  };
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold font-display text-foreground">Payments</h1>
           <p className="text-muted-foreground mt-1">Register payments and view history</p>
         </div>
-        <Button onClick={() => setDialogOpen(true)} className="gap-2"><Plus className="w-4 h-4" /> New Payment</Button>
+        <div className="flex gap-2">
+          <Button onClick={exportToPDF} variant="outline" className="gap-2 shrink-0">
+            <Download className="w-4 h-4" /> Download PDF
+          </Button>
+          <Button onClick={() => setDialogOpen(true)} className="gap-2 shrink-0"><Plus className="w-4 h-4" /> New Payment</Button>
+        </div>
       </div>
 
       {/* Payment History */}

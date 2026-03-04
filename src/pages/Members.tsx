@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLibrary } from '@/context/LibraryContext';
-import { Search, Trash2, ArrowUpCircle, MessageSquare } from 'lucide-react';
+import { Search, Trash2, ArrowUpCircle, MessageSquare, Download } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { format, parseISO, differenceInDays } from 'date-fns';
@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 type FilterType = 'All' | 'Active' | 'Expired' | 'Expiring Soon';
 
@@ -54,13 +56,42 @@ const Members = () => {
     }
   };
 
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    doc.text(`Members List (${filter})`, 14, 15);
+
+    const tableData = filtered.map(m => [
+      m.fullName,
+      `${m.countryCode} ${m.phone}`,
+      `${m.months} month(s)`,
+      format(parseISO(m.expiryDate), 'MMM d, yyyy'),
+      m.status
+    ]);
+
+    autoTable(doc, {
+      head: [['Name', 'Phone', 'Duration', 'Expiry', 'Status']],
+      body: tableData,
+      startY: 20,
+      theme: 'grid',
+      styles: { fontSize: 10 },
+      headStyles: { fillColor: [41, 128, 185] }
+    });
+
+    doc.save('library_members.pdf');
+  };
+
   const filters: FilterType[] = ['All', 'Active', 'Expired', 'Expiring Soon'];
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold font-display text-foreground">Members</h1>
-        <p className="text-muted-foreground mt-1">Manage your library members</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold font-display text-foreground">Members</h1>
+          <p className="text-muted-foreground mt-1">Manage your library members</p>
+        </div>
+        <Button onClick={exportToPDF} variant="outline" className="gap-2 shrink-0">
+          <Download className="w-4 h-4" /> Download PDF
+        </Button>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
