@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { addMonths, format } from 'date-fns';
-import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
+import { supabase } from '../lib/supabase';
 
 export interface Member {
   id: string;
@@ -106,24 +107,26 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [membersRes, paymentsRes] = await Promise.all([
+
+      const [membersResponse, paymentsResponse] = await Promise.all([
         supabase.from('members').select('*'),
-        supabase.from('payments').select('*'),
+        supabase.from('payments').select('*')
       ]);
 
-      if (membersRes.error) {
-        console.error('Error fetching members:', membersRes.error);
-      } else if (membersRes.data) {
-        setMembers(membersRes.data.map(memberFromDb));
+      if (membersResponse.error) {
+        console.error('Error fetching members:', membersResponse.error);
+      } else if (membersResponse.data) {
+        setMembers(membersResponse.data.map(memberFromDb));
       }
 
-      if (paymentsRes.error) {
-        console.error('Error fetching payments:', paymentsRes.error);
-      } else if (paymentsRes.data) {
-        setPayments(paymentsRes.data.map(paymentFromDb));
+      if (paymentsResponse.error) {
+        console.error('Error fetching payments:', paymentsResponse.error);
+      } else if (paymentsResponse.data) {
+        setPayments(paymentsResponse.data.map(paymentFromDb));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching data:', error);
+      toast.error('Failed to load data: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -165,24 +168,28 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     const dbData = memberToDb(data);
     const { error } = await supabase.from('members').update(dbData).eq('id', id);
     if (error) {
-      console.error('Error updating member:', error);
       throw error;
     }
+
     setMembers(prev => prev.map(m => m.id === id ? { ...m, ...data } : m));
   }, []);
 
   const deleteMember = useCallback(async (id: string) => {
-    const { error } = await supabase.from('members').delete().eq('id', id);
+    const { error } = await supabase
+      .from('members')
+      .delete()
+      .eq('id', id);
+
     if (error) {
-      console.error('Error deleting member:', error);
       throw error;
     }
+
     setMembers(prev => prev.filter(m => m.id !== id));
   }, []);
 
   const upgradeMember = useCallback(async (id: string, additionalMonths: number) => {
     const member = members.find(m => m.id === id);
-    if (!member) return;
+    if (!member) throw new Error('Member not found');
 
     const currentExpiry = new Date(member.expiryDate);
     const baseDate = currentExpiry > new Date() ? currentExpiry : new Date();
@@ -197,7 +204,6 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     const dbData = memberToDb(updateData);
     const { error } = await supabase.from('members').update(dbData).eq('id', id);
     if (error) {
-      console.error('Error upgrading member:', error);
       throw error;
     }
 
@@ -211,7 +217,6 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     const dbData = paymentToDb(payment);
     const { data, error } = await supabase.from('payments').insert([dbData]).select().single();
     if (error) {
-      console.error('Error adding payment:', error);
       throw error;
     }
     setPayments(prev => [...prev, paymentFromDb(data)]);
@@ -229,3 +234,4 @@ export function useLibrary() {
   if (!context) throw new Error('useLibrary must be used within LibraryProvider');
   return context;
 }
+
