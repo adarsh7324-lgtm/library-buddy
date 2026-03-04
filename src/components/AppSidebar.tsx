@@ -16,8 +16,8 @@ const navItems = [
 ];
 
 export function AppSidebar() {
-  const { state, setOpenMobile, setOpen } = useSidebar();
-  const collapsed = state === 'collapsed';
+  const { state, setOpenMobile, setOpen, isMobile } = useSidebar();
+  const collapsed = state === 'collapsed' && !isMobile;
   const { logout } = useLibrary();
   const navigate = useNavigate();
 
@@ -46,8 +46,11 @@ export function AppSidebar() {
                       className="hover:bg-sidebar-accent/50"
                       activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
                       onClick={() => {
-                        setOpenMobile(false);
-                        setOpen(false);
+                        if (isMobile) {
+                          setOpenMobile(false);
+                        } else {
+                          setOpen(false);
+                        }
                       }}
                     >
                       <item.icon className="mr-2 h-4 w-4" />
