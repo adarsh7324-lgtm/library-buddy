@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { addMonths, format } from 'date-fns';
 import { toast } from 'sonner';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 export interface Member {
@@ -53,34 +53,45 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-
-      const membersSnapshot = await getDocs(collection(db, 'members'));
-      const membersData = membersSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Member[];
-
-      const paymentsSnapshot = await getDocs(collection(db, 'payments'));
-      const paymentsData = paymentsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Payment[];
-
-      setMembers(membersData);
-      setPayments(paymentsData);
-    } catch (error: any) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to load data from Firebase');
-    } finally {
-      setLoading(false);
-    }
+    // This function is kept for backward compatibility with components that might call it,
+    // but the actual fetching is now handled by the real-time listeners in useEffect.
+    setLoading(true);
+    // Mimic the delay of a fetch to ensure loading states still trigger
+    await new Promise(resolve => setTimeout(resolve, 500));
+    setLoading(false);
   }, []);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    setLoading(true);
+
+    const unsubscribeMembers = onSnapshot(collection(db, 'members'), (snapshot) => {
+      const membersData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Member[];
+      setMembers(membersData);
+      setLoading(false); // Stop loading once first members arrive
+    }, (error) => {
+      console.error('Error listening to members:', error);
+      toast.error('Failed to sync data from Firebase');
+      setLoading(false);
+    });
+
+    const unsubscribePayments = onSnapshot(collection(db, 'payments'), (snapshot) => {
+      const paymentsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Payment[];
+      setPayments(paymentsData);
+    }, (error) => {
+      console.error('Error listening to payments:', error);
+    });
+
+    return () => {
+      unsubscribeMembers();
+      unsubscribePayments();
+    };
+  }, []);
 
   const login = useCallback((email: string, password: string) => {
     if (email === 'admin@librarypro.com' && password === 'admin123') {
@@ -99,8 +110,6 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const addMember = useCallback(async (member: Omit<Member, 'id'>) => {
     try {
       const docRef = await addDoc(collection(db, 'members'), member);
-      const newMember = { ...member, id: docRef.id };
-      setMembers(prev => [...prev, newMember]);
       return docRef.id;
     } catch (error) {
       console.error('Error adding member:', error);
@@ -113,7 +122,6 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     try {
       const memberRef = doc(db, 'members', id);
       await updateDoc(memberRef, data);
-      setMembers(prev => prev.map(m => m.id === id ? { ...m, ...data } : m));
     } catch (error) {
       console.error('Error updating member:', error);
       toast.error('Failed to update member');
@@ -125,7 +133,6 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     try {
       const memberRef = doc(db, 'members', id);
       await deleteDoc(memberRef);
-      setMembers(prev => prev.filter(m => m.id !== id));
     } catch (error) {
       console.error('Error deleting member:', error);
       toast.error('Failed to delete member');
@@ -135,8 +142,9 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
   const upgradeMember = useCallback(async (id: string, additionalMonths: number) => {
     try {
+      // Find the current member state locally to calculate the new expiry
       const member = members.find(m => m.id === id);
-      if (!member) throw new Error('Member not found');
+      if (!member) throw new Error('Member not found from local state');
 
       const currentExpiry = new Date(member.expiryDate);
       const baseDate = currentExpiry > new Date() ? currentExpiry : new Date();
@@ -151,7 +159,6 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       const memberRef = doc(db, 'members', id);
       await updateDoc(memberRef, updateData);
 
-      setMembers(prev => prev.map(m => m.id === id ? { ...m, ...updateData } : m));
     } catch (error) {
       console.error('Error upgrading member:', error);
       toast.error('Failed to upgrade member');
@@ -161,9 +168,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
   const addPayment = useCallback(async (payment: Omit<Payment, 'id'>) => {
     try {
-      const docRef = await addDoc(collection(db, 'payments'), payment);
-      const newPayment = { ...payment, id: docRef.id };
-      setPayments(prev => [...prev, newPayment]);
+      await addDoc(collection(db, 'payments'), payment);
     } catch (error) {
       console.error('Error adding payment:', error);
       toast.error('Failed to add payment');
