@@ -62,12 +62,13 @@ const Members = () => {
     const tableData = filtered.map(m => [
       m.fullName,
       `${m.countryCode} ${m.phone}`,
+      m.seatNumber || '-',
       format(parseISO(m.expiryDate), 'MMM d, yyyy'),
       m.status
     ]);
 
     autoTable(doc, {
-      head: [['Name', 'Phone', 'Expiry', 'Status']],
+      head: [['Name', 'Phone', 'Seat', 'Expiry', 'Status']],
       body: tableData,
       startY: 20,
       theme: 'grid',
@@ -113,6 +114,7 @@ const Members = () => {
             <tr className="border-b border-border/60">
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Name</th>
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Phone</th>
+              <th className="text-left py-3 px-4 font-medium text-muted-foreground">Seat</th>
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Expiry</th>
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
               <th className="text-right py-3 px-4 font-medium text-muted-foreground">Actions</th>
@@ -123,11 +125,12 @@ const Members = () => {
               <motion.tr key={member.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }} className="border-b border-border/30 hover:bg-muted/30 transition-colors">
                 <td className="py-3 px-4 font-medium text-foreground">{member.fullName}</td>
                 <td className="py-3 px-4 text-muted-foreground">{member.countryCode} {member.phone}</td>
+                <td className="py-3 px-4 text-muted-foreground">{member.seatNumber || '-'}</td>
                 <td className="py-3 px-4 text-muted-foreground">{format(parseISO(member.expiryDate), 'MMM d, yyyy')}</td>
                 <td className="py-3 px-4">
                   <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${member.status === 'Active' ? 'bg-success/10 text-success' :
-                      member.status === 'Expiring Soon' ? 'bg-warning/10 text-warning' :
-                        'bg-destructive/10 text-destructive'
+                    member.status === 'Expiring Soon' ? 'bg-warning/10 text-warning' :
+                      'bg-destructive/10 text-destructive'
                     }`}>
                     {member.status}
                   </span>
@@ -159,11 +162,11 @@ const Members = () => {
             <div className="flex items-start justify-between mb-2">
               <div>
                 <p className="font-medium text-foreground">{member.fullName}</p>
-                <p className="text-xs text-muted-foreground">{member.countryCode} {member.phone}</p>
+                <p className="text-xs text-muted-foreground">{member.countryCode} {member.phone} {member.seatNumber ? `• Seat: ${member.seatNumber}` : ''}</p>
               </div>
               <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${member.status === 'Active' ? 'bg-success/10 text-success' :
-                  member.status === 'Expiring Soon' ? 'bg-warning/10 text-warning' :
-                    'bg-destructive/10 text-destructive'
+                member.status === 'Expiring Soon' ? 'bg-warning/10 text-warning' :
+                  'bg-destructive/10 text-destructive'
                 }`}>
                 {member.status}
               </span>

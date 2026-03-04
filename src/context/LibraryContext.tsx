@@ -17,6 +17,7 @@ export interface Member {
   startDate: string;
   expiryDate: string;
   status: 'Active' | 'Expired' | 'Expiring Soon';
+  seatNumber?: string;
 }
 
 export interface Payment {

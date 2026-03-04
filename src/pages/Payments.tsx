@@ -7,14 +7,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { Plus, IndianRupee, Calendar, Download } from 'lucide-react';
+import { Plus, IndianRupee, Calendar, Download, Check, ChevronsUpDown } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 const Payments = () => {
   const { members, payments, addPayment, upgradeMember } = useLibrary();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [openMemberSelect, setOpenMemberSelect] = useState(false);
   const [form, setForm] = useState({ memberId: '', amount: '', months: '', note: '' });
 
   const handleSave = async () => {
@@ -167,14 +171,51 @@ const Payments = () => {
         <DialogContent>
           <DialogHeader><DialogTitle>Register Payment</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Member *</Label>
-              <Select value={form.memberId} onValueChange={v => setForm(f => ({ ...f, memberId: v }))}>
-                <SelectTrigger><SelectValue placeholder="Select member" /></SelectTrigger>
-                <SelectContent>
-                  {members.map(m => <SelectItem key={m.id} value={m.id}>{m.fullName}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Popover open={openMemberSelect} onOpenChange={setOpenMemberSelect}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={openMemberSelect}
+                    className="justify-between w-full font-normal"
+                  >
+                    {form.memberId
+                      ? members.find((m) => m.id === form.memberId)?.fullName
+                      : "Select member..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 max-h-[300px]" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search member..." />
+                    <CommandList>
+                      <CommandEmpty>No member found.</CommandEmpty>
+                      <CommandGroup>
+                        {members.map((m) => (
+                          <CommandItem
+                            key={m.id}
+                            value={`${m.fullName} ${m.phone}`}
+                            onSelect={() => {
+                              setForm(f => ({ ...f, memberId: m.id }));
+                              setOpenMemberSelect(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4 shrink-0",
+                                form.memberId === m.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {m.fullName} {m.phone ? `(${m.phone})` : ''}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div>
               <Label>Months to Add *</Label>

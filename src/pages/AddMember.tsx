@@ -16,7 +16,7 @@ const AddMember = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     fullName: '', phone: '', countryCode: '+91', address: '', idProofNumber: '',
-    months: '', feesPaid: '', startDate: format(new Date(), 'yyyy-MM-dd'),
+    months: '', feesPaid: '', startDate: format(new Date(), 'yyyy-MM-dd'), seatNumber: '',
   });
 
   const expiryDate = form.months && form.startDate
@@ -41,6 +41,7 @@ const AddMember = () => {
         startDate: form.startDate,
         expiryDate,
         status: 'Active',
+        seatNumber: form.seatNumber,
       });
 
       if (Number(form.feesPaid) > 0) {
@@ -103,6 +104,10 @@ const AddMember = () => {
             <div>
               <Label>ID Proof Number (optional)</Label>
               <Input value={form.idProofNumber} onChange={e => setForm(f => ({ ...f, idProofNumber: e.target.value }))} placeholder="Aadhaar / PAN / DL" />
+            </div>
+            <div>
+              <Label>Seat Number (optional)</Label>
+              <Input value={form.seatNumber} onChange={e => setForm(f => ({ ...f, seatNumber: e.target.value }))} placeholder="E.g., A12" />
             </div>
             <div>
               <Label>Membership Duration *</Label>
