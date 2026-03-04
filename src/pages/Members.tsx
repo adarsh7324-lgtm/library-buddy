@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLibrary } from '@/context/LibraryContext';
-import { Search, Trash2, ArrowUpCircle, MessageSquare, Download } from 'lucide-react';
+import { Search, Trash2, MessageSquare, Download, User, CreditCard } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { format, parseISO, differenceInDays } from 'date-fns';
@@ -15,11 +15,10 @@ import autoTable from 'jspdf-autotable';
 type FilterType = 'All' | 'Active' | 'Expired' | 'Expiring Soon';
 
 const Members = () => {
-  const { members, deleteMember, upgradeMember } = useLibrary();
+  const { members, deleteMember } = useLibrary();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('All');
-  const [upgradingId, setUpgradingId] = useState<string | null>(null);
-  const [upgradeMonths, setUpgradeMonths] = useState('');
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
 
   const today = new Date();
 
@@ -33,18 +32,6 @@ const Members = () => {
     }
     return true;
   });
-
-  const handleUpgrade = async () => {
-    if (!upgradingId || !upgradeMonths) { toast.error('Select months'); return; }
-    try {
-      await upgradeMember(upgradingId, Number(upgradeMonths));
-      toast.success(`Membership extended by ${upgradeMonths} month(s)`);
-      setUpgradingId(null);
-      setUpgradeMonths('');
-    } catch (error) {
-      toast.error('Failed to extend membership');
-    }
-  };
 
   const handleDelete = async (id: string) => {
     try {
@@ -140,7 +127,7 @@ const Members = () => {
                 </td>
                 <td className="py-3 px-4 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setUpgradingId(member.id); setUpgradeMonths(''); }}><ArrowUpCircle className="w-3.5 h-3.5" /></Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-primary hover:text-primary" onClick={() => setSelectedMemberId(member.id)}><User className="w-4 h-4" /></Button>
                     <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(member.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                     <a
                       href={`https://wa.me/${member.countryCode.replace('+', '')}${member.phone}?text=${encodeURIComponent(`Hello ${member.fullName}, your library membership expires on ${format(parseISO(member.expiryDate), 'MMM d, yyyy')}. Please renew to continue access.`)}`}
@@ -176,7 +163,7 @@ const Members = () => {
             </div>
             <p className="text-xs text-muted-foreground mb-3">Joined {member.startDate ? format(parseISO(member.startDate), 'MMM d, yyyy') : '-'} • Expires {format(parseISO(member.expiryDate), 'MMM d, yyyy')}</p>
             <div className="flex gap-2">
-              <Button size="sm" variant="outline" className="text-xs" onClick={() => { setUpgradingId(member.id); setUpgradeMonths(''); }}><ArrowUpCircle className="w-3 h-3 mr-1" /> Upgrade</Button>
+              <Button size="sm" variant="outline" className="text-xs" onClick={() => setSelectedMemberId(member.id)}><User className="w-3 h-3 mr-1" /> ID Card</Button>
               <Button size="sm" variant="outline" className="text-xs text-destructive" onClick={() => handleDelete(member.id)}><Trash2 className="w-3 h-3 mr-1" /> Delete</Button>
               <a href={`https://wa.me/${member.countryCode.replace('+', '')}${member.phone}?text=${encodeURIComponent(`Hello ${member.fullName}, your library membership expires on ${format(parseISO(member.expiryDate), 'MMM d, yyyy')}. Please renew to continue access.`)}`} target="_blank" rel="noopener noreferrer">
                 <Button size="sm" variant="outline" className="text-xs text-success"><MessageSquare className="w-3 h-3 mr-1" /> WhatsApp</Button>
@@ -187,28 +174,74 @@ const Members = () => {
         {filtered.length === 0 && <p className="text-center text-muted-foreground py-8">No members found</p>}
       </div>
 
-      {/* Upgrade Dialog */}
-      <Dialog open={!!upgradingId} onOpenChange={() => setUpgradingId(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Upgrade Membership</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Extend membership for <strong className="text-foreground">{members.find(m => m.id === upgradingId)?.fullName}</strong>
-            </p>
-            <div>
-              <Label>Add Months</Label>
-              <Select value={upgradeMonths} onValueChange={setUpgradeMonths}>
-                <SelectTrigger><SelectValue placeholder="Select months" /></SelectTrigger>
-                <SelectContent>
-                  {[1, 2, 3, 6, 12].map(m => <SelectItem key={m} value={String(m)}>{m} month{m > 1 ? 's' : ''}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setUpgradingId(null)}>Cancel</Button>
-            <Button onClick={handleUpgrade}>Upgrade</Button>
-          </DialogFooter>
+      {/* ID Card Dialog */}
+      <Dialog open={!!selectedMemberId} onOpenChange={() => setSelectedMemberId(null)}>
+        <DialogContent className="max-w-2xl p-0 overflow-hidden bg-transparent border-none shadow-none">
+          {(() => {
+            const member = members.find(m => m.id === selectedMemberId);
+            if (!member) return null;
+
+            return (
+              <div className="bg-card w-full rounded-xl overflow-hidden shadow-2xl flex flex-col md:flex-row relative border border-border">
+                <div className="w-full md:w-1/3 bg-muted/30 p-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-border/50">
+                  <div className="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden border-4 border-background shadow-md mb-4 bg-muted flex items-center justify-center">
+                    {member.photoUrl ? (
+                      <img src={member.photoUrl} alt={member.fullName} className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-16 h-16 text-muted-foreground/50" />
+                    )}
+                  </div>
+                  <h3 className="font-bold text-lg text-center leading-tight mb-1">{member.fullName}</h3>
+                  <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-bold ${member.status === 'Active' ? 'bg-success/20 text-success' : member.status === 'Expiring Soon' ? 'bg-warning/20 text-warning' : 'bg-destructive/20 text-destructive'}`}>
+                    {member.status}
+                  </span>
+                </div>
+
+                <div className="w-full md:w-2/3 p-6 space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h2 className="text-2xl font-display font-bold text-primary">LIBRARY BUDDY</h2>
+                      <p className="text-xs text-muted-foreground tracking-widest uppercase font-semibold">Member Identity Card</p>
+                    </div>
+                    <CreditCard className="w-8 h-8 text-primary/20" />
+                  </div>
+
+                  <div className="pt-2 border-t border-border/50 space-y-3">
+                    <div className="grid grid-cols-2 gap-y-3 gap-x-4">
+                      <div className="col-span-1">
+                        <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-0.5">Phone</p>
+                        <p className="font-medium text-sm">{member.countryCode} {member.phone}</p>
+                      </div>
+                      <div className="col-span-1">
+                        <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-0.5">Seat Number</p>
+                        <p className="font-medium text-sm">{member.seatNumber || 'N/A'}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-0.5">Address</p>
+                        <p className="font-medium text-sm truncate" title={member.address}>{member.address || 'N/A'}</p>
+                      </div>
+                      <div className="col-span-1">
+                        <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-0.5">ID Proof</p>
+                        <p className="font-medium text-sm">{member.idProofNumber || 'N/A'}</p>
+                      </div>
+                      <div className="col-span-1">
+                        <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-0.5">Duration</p>
+                        <p className="font-medium text-sm">{member.months} Month(s)</p>
+                      </div>
+                      <div className="col-span-1">
+                        <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-0.5">Joined</p>
+                        <p className="font-medium text-sm">{member.startDate ? format(parseISO(member.startDate), 'MMM d, yyyy') : 'N/A'}</p>
+                      </div>
+                      <div className="col-span-1">
+                        <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-0.5">Valid Till</p>
+                        <p className="font-medium text-sm text-primary">{format(parseISO(member.expiryDate), 'MMM d, yyyy')}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

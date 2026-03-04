@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useLibrary } from '@/context/LibraryContext';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { addMonths, format } from 'date-fns';
 import { toast } from 'sonner';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, Camera, RefreshCcw, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const AddMember = () => {
@@ -18,6 +18,77 @@ const AddMember = () => {
     fullName: '', phone: '', countryCode: '+91', address: '', idProofNumber: '',
     months: '', feesPaid: '', startDate: format(new Date(), 'yyyy-MM-dd'), seatNumber: '',
   });
+
+  const [photoBase64, setPhotoBase64] = useState<string | null>(null);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const startCamera = async (mode: 'user' | 'environment') => {
+    try {
+      if (videoRef.current && videoRef.current.srcObject) {
+        const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+        tracks.forEach(track => track.stop());
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: mode }
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+      setCameraActive(true);
+      setFacingMode(mode);
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      toast.error('Could not access camera');
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+      tracks.forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setCameraActive(false);
+  };
+
+  const flipCamera = () => {
+    startCamera(facingMode === 'user' ? 'environment' : 'user');
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const context = canvasRef.current.getContext('2d');
+      if (context) {
+        const MAX_WIDTH = 300;
+        const scale = MAX_WIDTH / videoRef.current.videoWidth;
+        const targetWidth = MAX_WIDTH;
+        const targetHeight = videoRef.current.videoHeight * scale;
+
+        canvasRef.current.width = targetWidth;
+        canvasRef.current.height = targetHeight;
+        context.drawImage(videoRef.current, 0, 0, targetWidth, targetHeight);
+
+        // Use lower quality for smaller base64 string to fit in Firestore
+        const dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.6);
+        setPhotoBase64(dataUrl);
+        stopCamera();
+      }
+    }
+  };
+
+  const retakePhoto = () => {
+    setPhotoBase64(null);
+    startCamera(facingMode);
+  };
+
+  useEffect(() => {
+    return () => stopCamera();
+  }, []);
 
   const expiryDate = form.months && form.startDate
     ? format(addMonths(new Date(form.startDate), Number(form.months)), 'yyyy-MM-dd')
@@ -42,7 +113,7 @@ const AddMember = () => {
         expiryDate,
         status: 'Active',
         seatNumber: form.seatNumber,
-      });
+      }, photoBase64 || undefined);
 
       if (Number(form.feesPaid) > 0) {
         await addPayment({
@@ -76,6 +147,47 @@ const AddMember = () => {
 
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="stat-card">
         <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="flex flex-col items-center justify-center space-y-4 mb-6">
+            <Label className="text-lg font-semibold cursor-default">Profile Photograph</Label>
+
+            {!cameraActive && !photoBase64 && (
+              <div className="w-32 h-32 sm:w-48 sm:h-48 border-2 border-dashed border-muted-foreground/30 rounded-lg flex flex-col items-center justify-center bg-muted/20">
+                <Camera className="w-10 h-10 text-muted-foreground mb-2" />
+                <Button type="button" variant="outline" size="sm" onClick={() => startCamera('user')}>Open Camera</Button>
+              </div>
+            )}
+
+            {cameraActive && !photoBase64 && (
+              <div className="relative w-full max-w-[280px] sm:max-w-sm rounded-[2rem] sm:rounded-lg overflow-hidden bg-black aspect-[3/4] sm:aspect-video flex items-center justify-center shadow-lg mx-auto">
+                <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
+                <div className="absolute inset-x-0 bottom-4 flex justify-center gap-6 px-4">
+                  <Button type="button" variant="secondary" size="icon" className="rounded-full w-12 h-12 bg-white/20 hover:bg-white/30 backdrop-blur-md border-0 text-white" onClick={flipCamera}>
+                    <RefreshCcw className="w-5 h-5" />
+                  </Button>
+                  <Button type="button" variant="default" className="rounded-full w-16 h-16 bg-white hover:bg-white/90 shadow-xl border-[4px] border-white/20 p-0" onClick={capturePhoto}>
+                    <span className="sr-only">Capture</span>
+                  </Button>
+                  <Button type="button" variant="destructive" size="icon" className="rounded-full w-12 h-12 bg-red-500/80 hover:bg-red-500 backdrop-blur-md border-0 text-white" onClick={stopCamera}>
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {photoBase64 && (
+              <div className="relative w-32 h-32 sm:w-48 sm:h-48 rounded-lg overflow-hidden border border-border shadow-sm">
+                <img src={photoBase64} alt="Captured" className="w-full h-full object-cover" />
+                <div className="absolute bottom-2 left-0 right-0 flex justify-center">
+                  <Button type="button" variant="secondary" size="sm" className="opacity-90 hover:opacity-100 shadow-sm" onClick={retakePhoto}>
+                    <RefreshCcw className="w-3 h-3 mr-2" /> Retake
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <canvas ref={canvasRef} className="hidden" />
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <Label>Full Name *</Label>

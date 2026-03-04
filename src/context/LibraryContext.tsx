@@ -18,6 +18,7 @@ export interface Member {
   expiryDate: string;
   status: 'Active' | 'Expired' | 'Expiring Soon';
   seatNumber?: string;
+  photoUrl?: string;
 }
 
 export interface Payment {
@@ -37,7 +38,7 @@ interface LibraryContextType {
   activeLibraryId: string | null;
   login: (email: string, password: string) => boolean;
   logout: () => void;
-  addMember: (member: Omit<Member, 'id' | 'libraryId'>) => Promise<string>;
+  addMember: (member: Omit<Member, 'id' | 'libraryId'>, photoBase64?: string) => Promise<string>;
   updateMember: (id: string, member: Partial<Member>) => Promise<void>;
   deleteMember: (id: string) => Promise<void>;
   upgradeMember: (id: string, additionalMonths: number) => Promise<void>;
@@ -149,13 +150,15 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     sessionStorage.removeItem('librarypro_library_id');
   }, []);
 
-  const addMember = useCallback(async (member: Omit<Member, 'id' | 'libraryId'>) => {
+  const addMember = useCallback(async (member: Omit<Member, 'id' | 'libraryId'>, photoBase64?: string) => {
     if (!activeLibraryId) throw new Error('Cannot add member: No active library session');
     try {
       const docRef = await addDoc(collection(db, 'members'), {
         ...member,
-        libraryId: activeLibraryId
+        libraryId: activeLibraryId,
+        photoUrl: photoBase64 || null
       });
+
       return docRef.id;
     } catch (error) {
       console.error('Error adding member:', error);
