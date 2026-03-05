@@ -31,9 +31,14 @@ export interface Payment {
   note: string;
 }
 
+export interface DeletedPayment extends Payment {
+  deletedAt: string;
+}
+
 interface LibraryContextType {
   members: Member[];
   payments: Payment[];
+  deletedPayments: DeletedPayment[];
   isAuthenticated: boolean;
   activeLibraryId: string | null;
   login: (email: string, password: string) => boolean;
@@ -43,6 +48,8 @@ interface LibraryContextType {
   deleteMember: (id: string) => Promise<void>;
   upgradeMember: (id: string, additionalMonths: number) => Promise<void>;
   addPayment: (payment: Omit<Payment, 'id' | 'libraryId'>) => Promise<void>;
+  deletePayment: (id: string) => Promise<void>;
+  clearDeletedPayments: (password: string) => Promise<void>;
   fetchData: () => Promise<void>;
   loading: boolean;
 }
@@ -57,6 +64,7 @@ const LIBRARIES = [
 export function LibraryProvider({ children }: { children: ReactNode }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [deletedPayments, setDeletedPayments] = useState<DeletedPayment[]>([]);
   const [activeLibraryId, setActiveLibraryId] = useState<string | null>(() => {
     return sessionStorage.getItem('librarypro_library_id');
   });
@@ -76,6 +84,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     if (!activeLibraryId) {
       setMembers([]);
       setPayments([]);
+      setDeletedPayments([]);
       setLoading(false);
       return;
     }
@@ -128,9 +137,21 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       console.error('Error listening to payments:', error);
     });
 
+    const deletedPaymentsQuery = query(collection(db, 'deleted_payments'), where('libraryId', '==', activeLibraryId));
+    const unsubscribeDeletedPayments = onSnapshot(deletedPaymentsQuery, (snapshot) => {
+      const dpData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as DeletedPayment[];
+      setDeletedPayments(dpData);
+    }, (error) => {
+      console.error('Error listening to deleted payments:', error);
+    });
+
     return () => {
       unsubscribeMembers();
       unsubscribePayments();
+      unsubscribeDeletedPayments();
     };
   }, [activeLibraryId]);
 
@@ -229,8 +250,49 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     }
   }, [activeLibraryId]);
 
+  const deletePayment = useCallback(async (id: string) => {
+    try {
+      const paymentToDel = payments.find(p => p.id === id);
+      if (!paymentToDel) throw new Error('Payment not found');
+
+      // Add to deleted_payments
+      await addDoc(collection(db, 'deleted_payments'), {
+        ...paymentToDel,
+        deletedAt: new Date().toISOString()
+      });
+
+      // Remove from payments
+      const paymentRef = doc(db, 'payments', id);
+      await deleteDoc(paymentRef);
+      toast.success('Payment deleted');
+    } catch (error) {
+      console.error('Error deleting payment:', error);
+      toast.error('Failed to delete payment');
+      throw error;
+    }
+  }, [payments]);
+
+  const clearDeletedPayments = useCallback(async (password: string) => {
+    if (password !== 'Password@813') {
+      toast.error('Incorrect password');
+      throw new Error('Incorrect password');
+    }
+
+    try {
+      for (const dp of deletedPayments) {
+        const ref = doc(db, 'deleted_payments', dp.id);
+        await deleteDoc(ref);
+      }
+      toast.success('Deleted payments cleared');
+    } catch (error) {
+      console.error('Error clearing deleted payments:', error);
+      toast.error('Failed to clear deleted payments');
+      throw error;
+    }
+  }, [deletedPayments]);
+
   return (
-    <LibraryContext.Provider value={{ members, payments, isAuthenticated, activeLibraryId, login, logout, addMember, updateMember, deleteMember, upgradeMember, addPayment, fetchData, loading }}>
+    <LibraryContext.Provider value={{ members, payments, deletedPayments, isAuthenticated, activeLibraryId, login, logout, addMember, updateMember, deleteMember, upgradeMember, addPayment, deletePayment, clearDeletedPayments, fetchData, loading }}>
       {children}
     </LibraryContext.Provider>
   );
