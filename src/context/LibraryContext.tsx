@@ -281,10 +281,14 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      for (const dp of deletedPayments) {
+      // Create a batch or iterate to delete
+      const deletePromises = deletedPayments.map(dp => {
         const ref = doc(db, 'deleted_payments', dp.id);
-        await deleteDoc(ref);
-      }
+        return deleteDoc(ref);
+      });
+
+      await Promise.all(deletePromises);
+
       toast.success('Deleted payments cleared');
     } catch (error) {
       console.error('Error clearing deleted payments:', error);
