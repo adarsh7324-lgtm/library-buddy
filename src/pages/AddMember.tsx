@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { addMonths, format } from 'date-fns';
 import { toast } from 'sonner';
-import { UserPlus, Camera, RefreshCcw, X } from 'lucide-react';
+import { UserPlus, Camera, RefreshCcw, X, Video } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const AddMember = () => {
@@ -20,6 +20,16 @@ const AddMember = () => {
   });
 
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => stopCamera();
+  }, []);
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -50,6 +60,49 @@ const AddMember = () => {
     setPhotoBase64(null);
   };
 
+  const startCamera = async () => {
+    if (isMobile) {
+      // Mobile relies on the <input capture="environment" />
+      return;
+    }
+    try {
+      setIsCameraOpen(true);
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+    } catch (err) {
+      console.error('Error accessing camera:', err);
+      toast.error('Failed to access camera. Please check permissions.');
+      setIsCameraOpen(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraOpen(false);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement('canvas');
+      const MAX_WIDTH = 300;
+      const scale = MAX_WIDTH / videoRef.current.videoWidth;
+      canvas.width = MAX_WIDTH;
+      canvas.height = videoRef.current.videoHeight * scale;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+        setPhotoBase64(canvas.toDataURL('image/jpeg', 0.8));
+      }
+      stopCamera();
+    }
+  };
 
 
   const expiryDate = form.months && form.startDate
@@ -112,20 +165,42 @@ const AddMember = () => {
           <div className="flex flex-col items-center justify-center space-y-4 mb-6">
             <Label className="text-lg font-semibold cursor-default">Profile Photograph</Label>
 
-            {!photoBase64 && (
+            {!photoBase64 && !isCameraOpen && (
               <div className="w-32 h-32 sm:w-48 sm:h-48 border-2 border-dashed border-muted-foreground/30 rounded-lg flex flex-col items-center justify-center bg-muted/20 relative">
                 <Camera className="w-10 h-10 text-muted-foreground mb-2" />
-                <Label htmlFor="camera-upload" className="cursor-pointer bg-background border border-input hover:bg-accent hover:text-accent-foreground h-9 px-3 py-2 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium shadow-sm transition-colors">
-                  Open Camera
-                </Label>
-                <input
-                  id="camera-upload"
-                  type="file"
-                  accept="image/*"
-                  capture="user"
-                  className="hidden"
-                  onChange={handleFileUpload}
-                />
+                {isMobile ? (
+                  <Label htmlFor="camera-upload" className="cursor-pointer bg-background border border-input hover:bg-accent hover:text-accent-foreground h-9 px-3 py-2 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium shadow-sm transition-colors">
+                    Open Camera
+                  </Label>
+                ) : (
+                  <Button type="button" onClick={startCamera} variant="outline" size="sm">
+                    Open Camera
+                  </Button>
+                )}
+                {isMobile && (
+                  <input
+                    id="camera-upload"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                  />
+                )}
+              </div>
+            )}
+
+            {isCameraOpen && !photoBase64 && !isMobile && (
+              <div className="relative w-full max-w-sm rounded-lg overflow-hidden border border-border bg-black aspect-video flex items-center justify-center">
+                <video ref={videoRef} className="w-full text-white" playsInline muted></video>
+                <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-4">
+                  <Button type="button" variant="destructive" size="sm" onClick={stopCamera}>
+                    Cancel
+                  </Button>
+                  <Button type="button" variant="default" size="sm" onClick={capturePhoto}>
+                    Capture
+                  </Button>
+                </div>
               </div>
             )}
 
