@@ -12,12 +12,18 @@ import Payments from "./pages/Payments";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import Reminders from "./pages/Reminders";
+import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useLibrary();
+  const { isAuthenticated, activeLibraryId } = useLibrary();
   if (!isAuthenticated) return <Navigate to="/login" replace />;
+
+  if (activeLibraryId === 'superadmin') {
+    return <SuperAdminDashboard />;
+  }
+
   return <DashboardLayout>{children}</DashboardLayout>;
 }
 

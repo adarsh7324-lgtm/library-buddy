@@ -51,15 +51,17 @@ interface LibraryContextType {
   deletePayment: (id: string) => Promise<void>;
   clearDeletedPayments: (password: string) => Promise<void>;
   fetchData: () => Promise<void>;
+  switchLibrary: (libraryId: string) => void;
   loading: boolean;
 }
 
 const LibraryContext = createContext<LibraryContextType | undefined>(undefined);
 
-const LIBRARIES = [
+export const LIBRARIES = [
   { id: 'librarypro', email: 'admin@librarypro.com', password: 'admin123' },
   { id: 'alphalibrary', email: 'alphalibrary@coppercore.co', password: 'CopperCore#1' },
-  { id: 'demolibrary', email: 'demolibrary@coppercore.co', password: 'coppercore#demo' }
+  { id: 'demolibrary', email: 'demolibrary@coppercore.co', password: 'coppercore#demo' },
+  { id: 'superadmin', email: 'superadmin@coppercore.co', password: 'TopSecretMission@CopperCore', isSuperAdmin: true }
 ];
 
 export function LibraryProvider({ children }: { children: ReactNode }) {
@@ -170,6 +172,11 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     setActiveLibraryId(null);
     sessionStorage.removeItem('librarypro_library_id');
+  }, []);
+
+  const switchLibrary = useCallback((libraryId: string) => {
+    setActiveLibraryId(libraryId);
+    sessionStorage.setItem('librarypro_library_id', libraryId);
   }, []);
 
   const addMember = useCallback(async (member: Omit<Member, 'id' | 'libraryId'>, photoBase64?: string) => {
@@ -299,7 +306,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   }, [deletedPayments]);
 
   return (
-    <LibraryContext.Provider value={{ members, payments, deletedPayments, isAuthenticated, activeLibraryId, login, logout, addMember, updateMember, deleteMember, upgradeMember, addPayment, deletePayment, clearDeletedPayments, fetchData, loading }}>
+    <LibraryContext.Provider value={{ members, payments, deletedPayments, isAuthenticated, activeLibraryId, login, logout, addMember, updateMember, deleteMember, upgradeMember, addPayment, deletePayment, clearDeletedPayments, fetchData, switchLibrary, loading }}>
       {children}
     </LibraryContext.Provider>
   );
