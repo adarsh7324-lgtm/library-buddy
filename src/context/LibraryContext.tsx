@@ -256,8 +256,10 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       if (!paymentToDel) throw new Error('Payment not found');
 
       // Add to deleted_payments
+      const { id: paymentId, ...paymentData } = paymentToDel;
       await addDoc(collection(db, 'deleted_payments'), {
-        ...paymentToDel,
+        ...paymentData,
+        originalPaymentId: paymentId,
         deletedAt: new Date().toISOString()
       });
 

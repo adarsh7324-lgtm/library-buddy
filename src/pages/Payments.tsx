@@ -128,17 +128,17 @@ const Payments = () => {
           <h1 className="text-2xl md:text-3xl font-bold font-display text-foreground">Payments</h1>
           <p className="text-muted-foreground mt-1">Register payments and view history</p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setViewDeleted(!viewDeleted)} variant="outline" className="gap-2 shrink-0">
+        <div className="flex flex-wrap gap-2 justify-end sm:justify-start">
+          <Button size="sm" onClick={() => setViewDeleted(!viewDeleted)} variant="outline" className="gap-1.5 shrink-0 text-xs h-8">
             {viewDeleted ? 'View Active' : 'View Deleted'}
           </Button>
-          <Button onClick={exportToPDF} variant="outline" className="gap-2 shrink-0">
-            <Download className="w-4 h-4" /> Download PDF
+          <Button size="sm" onClick={exportToPDF} variant="outline" className="gap-1.5 shrink-0 text-xs h-8">
+            <Download className="w-3.5 h-3.5" /> Download PDF
           </Button>
           {!viewDeleted ? (
-            <Button onClick={() => setDialogOpen(true)} className="gap-2 shrink-0"><Plus className="w-4 h-4" /> New Payment</Button>
+            <Button size="sm" onClick={() => setDialogOpen(true)} className="gap-1.5 shrink-0 text-xs h-8"><Plus className="w-3.5 h-3.5" /> New Payment</Button>
           ) : (
-            <Button onClick={() => setClearDialogOpen(true)} variant="destructive" className="gap-2 shrink-0"><Trash2 className="w-4 h-4" /> Clear All</Button>
+            <Button size="sm" onClick={() => setClearDialogOpen(true)} variant="destructive" className="gap-1.5 shrink-0 text-xs h-8"><Trash2 className="w-3.5 h-3.5" /> Clear All</Button>
           )}
         </div>
       </div>
