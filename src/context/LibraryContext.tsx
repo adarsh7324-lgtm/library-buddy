@@ -58,7 +58,8 @@ const LibraryContext = createContext<LibraryContextType | undefined>(undefined);
 
 const LIBRARIES = [
   { id: 'librarypro', email: 'admin@librarypro.com', password: 'admin123' },
-  { id: 'alphalibrary', email: 'alphalibrary@coppercore.co', password: 'CopperCore#1' }
+  { id: 'alphalibrary', email: 'alphalibrary@coppercore.co', password: 'CopperCore#1' },
+  { id: 'demolibrary', email: 'demolibrary@coppercore.co', password: 'coppercore#demo' }
 ];
 
 export function LibraryProvider({ children }: { children: ReactNode }) {
