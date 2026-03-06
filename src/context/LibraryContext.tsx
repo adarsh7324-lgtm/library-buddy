@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { addMonths, addDays, format, differenceInDays } from 'date-fns';
 import { toast } from 'sonner';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where, setDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 
 export interface Member {
   id: string;
@@ -58,6 +57,7 @@ interface LibraryContextType {
   isAuthenticated: boolean;
   activeLibraryId: string | null;
   login: (email: string, password: string) => boolean;
+  loginWithGoogle: () => Promise<void>;
   logout: () => void;
   addMember: (member: Omit<Member, 'id' | 'libraryId'>, photoBase64?: string) => Promise<string>;
   updateMember: (id: string, member: Partial<Member>) => Promise<void>;
@@ -94,13 +94,121 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
-    // This function is kept for backward compatibility with components that might call it,
-    // but the actual fetching is now handled by the real-time listeners in useEffect.
     setLoading(true);
-    // Mimic the delay of a fetch to ensure loading states still trigger
     await new Promise(resolve => setTimeout(resolve, 500));
     setLoading(false);
   }, []);
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.email) {
+        const matchedAccount = LIBRARIES.find(lib => lib.email === session.user?.email);
+        if (matchedAccount) {
+          setActiveLibraryId(matchedAccount.id);
+          sessionStorage.setItem('librarypro_library_id', matchedAccount.id);
+        }
+      }
+    };
+    checkUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user?.email) {
+        const matchedAccount = LIBRARIES.find(lib => lib.email === session.user?.email);
+        if (matchedAccount) {
+          setActiveLibraryId(matchedAccount.id);
+          sessionStorage.setItem('librarypro_library_id', matchedAccount.id);
+        }
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const fetchMembers = useCallback(async () => {
+    if (!activeLibraryId) return;
+    const { data: membersData, error } = await supabase
+      .from('members')
+      .select('*')
+      .eq('libraryId', activeLibraryId);
+
+    if (error) {
+      console.error('Error fetching members:', error);
+      toast.error('Failed to sync members from Supabase');
+      return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const processedMembers = membersData.map((data: any) => {
+      const expiryDate = new Date(data.expiryDate);
+      expiryDate.setHours(0, 0, 0, 0);
+
+      const daysDiff = differenceInDays(expiryDate, today);
+
+      let status = data.status;
+      if (expiryDate < today) {
+        status = 'Expired';
+      } else if (daysDiff >= 0 && daysDiff <= 7) {
+        status = 'Expiring Soon';
+      } else {
+        status = 'Active';
+      }
+
+      return {
+        ...data,
+        status
+      };
+    }) as Member[];
+
+    setMembers(processedMembers);
+  }, [activeLibraryId]);
+
+  const fetchPayments = useCallback(async () => {
+    if (!activeLibraryId) return;
+    const { data, error } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('libraryId', activeLibraryId);
+
+    if (error) {
+      console.error('Error fetching payments:', error);
+      return;
+    }
+    setPayments(data as Payment[]);
+  }, [activeLibraryId]);
+
+  const fetchDeletedPayments = useCallback(async () => {
+    if (!activeLibraryId) return;
+    const { data, error } = await supabase
+      .from('deleted_payments')
+      .select('*')
+      .eq('libraryId', activeLibraryId);
+
+    if (error) {
+      console.error('Error fetching deleted payments:', error);
+      return;
+    }
+    setDeletedPayments(data as DeletedPayment[]);
+  }, [activeLibraryId]);
+
+  const fetchSettings = useCallback(async () => {
+    if (!activeLibraryId) return;
+    const { data, error } = await supabase
+      .from('settings')
+      .select('*')
+      .eq('id', activeLibraryId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 is no rows returned
+      console.error('Error fetching settings:', error);
+      return;
+    }
+    setSettings(data ? (data as LibrarySettings) : {});
+  }, [activeLibraryId]);
 
   useEffect(() => {
     if (!activeLibraryId) {
@@ -114,81 +222,42 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
     setLoading(true);
 
-    const membersQuery = query(collection(db, 'members'), where('libraryId', '==', activeLibraryId));
-    const unsubscribeMembers = onSnapshot(membersQuery, (snapshot) => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0); // Start of today
+    // Initial data fetch
+    Promise.all([
+      fetchMembers(),
+      fetchPayments(),
+      fetchDeletedPayments(),
+      fetchSettings()
+    ]).finally(() => setLoading(false));
 
-      const membersData = snapshot.docs.map(doc => {
-        const data = doc.data() as Omit<Member, 'id'>;
-        const expiryDate = new Date(data.expiryDate);
-        expiryDate.setHours(0, 0, 0, 0);
+    // Supabase Realtime Subscriptions
+    const membersChannel = supabase.channel('members_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, () => {
+        fetchMembers();
+      }).subscribe();
 
-        const daysDiff = differenceInDays(expiryDate, today);
+    const paymentsChannel = supabase.channel('payments_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => {
+        fetchPayments();
+      }).subscribe();
 
-        let status = data.status;
-        if (expiryDate < today) {
-          status = 'Expired';
-        } else if (daysDiff >= 0 && daysDiff <= 7) {
-          status = 'Expiring Soon';
-        } else {
-          status = 'Active';
-        }
+    const deletedPaymentsChannel = supabase.channel('deleted_payments_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deleted_payments' }, () => {
+        fetchDeletedPayments();
+      }).subscribe();
 
-        return {
-          id: doc.id,
-          ...data,
-          status
-        };
-      }) as Member[];
-      setMembers(membersData);
-      setLoading(false); // Stop loading once first members arrive
-    }, (error) => {
-      console.error('Error listening to members:', error);
-      toast.error('Failed to sync data from Firebase');
-      setLoading(false);
-    });
-
-    const paymentsQuery = query(collection(db, 'payments'), where('libraryId', '==', activeLibraryId));
-    const unsubscribePayments = onSnapshot(paymentsQuery, (snapshot) => {
-      const paymentsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Payment[];
-      setPayments(paymentsData);
-    }, (error) => {
-      console.error('Error listening to payments:', error);
-    });
-
-    const deletedPaymentsQuery = query(collection(db, 'deleted_payments'), where('libraryId', '==', activeLibraryId));
-    const unsubscribeDeletedPayments = onSnapshot(deletedPaymentsQuery, (snapshot) => {
-      const dpData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as DeletedPayment[];
-      setDeletedPayments(dpData);
-    }, (error) => {
-      console.error('Error listening to deleted payments:', error);
-    });
-
-    const settingsRef = doc(db, 'settings', activeLibraryId);
-    const unsubscribeSettings = onSnapshot(settingsRef, (docSnap) => {
-      if (docSnap.exists()) {
-        setSettings(docSnap.data() as LibrarySettings);
-      } else {
-        setSettings({});
-      }
-    }, (error) => {
-      console.error('Error listening to settings:', error);
-    });
+    const settingsChannel = supabase.channel('settings_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => {
+        fetchSettings();
+      }).subscribe();
 
     return () => {
-      unsubscribeMembers();
-      unsubscribePayments();
-      unsubscribeDeletedPayments();
-      unsubscribeSettings();
+      supabase.removeChannel(membersChannel);
+      supabase.removeChannel(paymentsChannel);
+      supabase.removeChannel(deletedPaymentsChannel);
+      supabase.removeChannel(settingsChannel);
     };
-  }, [activeLibraryId]);
+  }, [activeLibraryId, fetchMembers, fetchPayments, fetchDeletedPayments, fetchSettings]);
 
   const login = useCallback((email: string, password: string) => {
     const matchedAccount = LIBRARIES.find(lib => lib.email === email && lib.password === password);
@@ -201,9 +270,23 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     return false;
   }, []);
 
-  const logout = useCallback(() => {
+  const loginWithGoogle = useCallback(async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        // Redirect will be handled automatically, could specify URL if needed
+      });
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error logging in with Google:', error);
+      toast.error('Failed to log in with Google');
+    }
+  }, []);
+
+  const logout = useCallback(async () => {
     setActiveLibraryId(null);
     sessionStorage.removeItem('librarypro_library_id');
+    await supabase.auth.signOut();
   }, []);
 
   const switchLibrary = useCallback((libraryId: string) => {
@@ -214,13 +297,14 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const addMember = useCallback(async (member: Omit<Member, 'id' | 'libraryId'>, photoBase64?: string) => {
     if (!activeLibraryId) throw new Error('Cannot add member: No active library session');
     try {
-      const docRef = await addDoc(collection(db, 'members'), {
+      const { data, error } = await supabase.from('members').insert([{
         ...member,
         libraryId: activeLibraryId,
         photoUrl: photoBase64 || null
-      });
+      }]).select().single();
 
-      return docRef.id;
+      if (error) throw error;
+      return data.id;
     } catch (error) {
       console.error('Error adding member:', error);
       toast.error('Failed to add member');
@@ -230,8 +314,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
   const updateMember = useCallback(async (id: string, data: Partial<Member>) => {
     try {
-      const memberRef = doc(db, 'members', id);
-      await updateDoc(memberRef, data);
+      const { error } = await supabase.from('members').update(data).eq('id', id);
+      if (error) throw error;
     } catch (error) {
       console.error('Error updating member:', error);
       toast.error('Failed to update member');
@@ -241,8 +325,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
   const deleteMember = useCallback(async (id: string) => {
     try {
-      const memberRef = doc(db, 'members', id);
-      await deleteDoc(memberRef);
+      const { error } = await supabase.from('members').delete().eq('id', id);
+      if (error) throw error;
     } catch (error) {
       console.error('Error deleting member:', error);
       toast.error('Failed to delete member');
@@ -252,7 +336,6 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
   const upgradeMember = useCallback(async (id: string, additionalMonths: number, additionalDays?: number) => {
     try {
-      // Find the current member state locally to calculate the new expiry
       const member = members.find(m => m.id === id);
       if (!member) throw new Error('Member not found from local state');
 
@@ -272,8 +355,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         updateData.customDays = (member.customDays || 0) + additionalDays;
       }
 
-      const memberRef = doc(db, 'members', id);
-      await updateDoc(memberRef, updateData);
+      const { error } = await supabase.from('members').update(updateData).eq('id', id);
+      if (error) throw error;
 
     } catch (error) {
       console.error('Error upgrading member:', error);
@@ -285,10 +368,11 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const addPayment = useCallback(async (payment: Omit<Payment, 'id' | 'libraryId'>) => {
     if (!activeLibraryId) throw new Error('Cannot register payment: No active library session');
     try {
-      await addDoc(collection(db, 'payments'), {
+      const { error } = await supabase.from('payments').insert([{
         ...payment,
         libraryId: activeLibraryId
-      });
+      }]);
+      if (error) throw error;
     } catch (error) {
       console.error('Error adding payment:', error);
       toast.error('Failed to add payment');
@@ -301,17 +385,19 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       const paymentToDel = payments.find(p => p.id === id);
       if (!paymentToDel) throw new Error('Payment not found');
 
-      // Add to deleted_payments
       const { id: paymentId, ...paymentData } = paymentToDel;
-      await addDoc(collection(db, 'deleted_payments'), {
+
+      const { error: insertError } = await supabase.from('deleted_payments').insert([{
         ...paymentData,
         originalPaymentId: paymentId,
         deletedAt: new Date().toISOString()
-      });
+      }]);
 
-      // Remove from payments
-      const paymentRef = doc(db, 'payments', id);
-      await deleteDoc(paymentRef);
+      if (insertError) throw insertError;
+
+      const { error: deleteError } = await supabase.from('payments').delete().eq('id', id);
+      if (deleteError) throw deleteError;
+
       toast.success('Payment deleted');
     } catch (error) {
       console.error('Error deleting payment:', error);
@@ -327,13 +413,9 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      // Create a batch or iterate to delete
-      const deletePromises = deletedPayments.map(dp => {
-        const ref = doc(db, 'deleted_payments', dp.id);
-        return deleteDoc(ref);
-      });
-
-      await Promise.all(deletePromises);
+      if (!activeLibraryId) return;
+      const { error } = await supabase.from('deleted_payments').delete().eq('libraryId', activeLibraryId);
+      if (error) throw error;
 
       toast.success('Deleted payments cleared');
     } catch (error) {
@@ -341,13 +423,16 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       toast.error('Failed to clear deleted payments');
       throw error;
     }
-  }, [deletedPayments]);
+  }, [activeLibraryId]);
 
   const updateSettings = useCallback(async (newSettings: Partial<LibrarySettings>) => {
     if (!activeLibraryId) throw new Error('No active library session');
     try {
-      const settingsRef = doc(db, 'settings', activeLibraryId);
-      await setDoc(settingsRef, newSettings, { merge: true });
+      const { error } = await supabase.from('settings').upsert({
+        id: activeLibraryId,
+        ...newSettings
+      });
+      if (error) throw error;
     } catch (error) {
       console.error('Error updating settings:', error);
       toast.error('Failed to update settings');
@@ -356,7 +441,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   }, [activeLibraryId]);
 
   return (
-    <LibraryContext.Provider value={{ members, payments, deletedPayments, isAuthenticated, activeLibraryId, login, logout, addMember, updateMember, deleteMember, upgradeMember, addPayment, deletePayment, clearDeletedPayments, updateSettings, fetchData, switchLibrary, loading, settings }}>
+    <LibraryContext.Provider value={{ members, payments, deletedPayments, isAuthenticated, activeLibraryId, login, loginWithGoogle, logout, addMember, updateMember, deleteMember, upgradeMember, addPayment, deletePayment, clearDeletedPayments, updateSettings, fetchData, switchLibrary, loading, settings }}>
       {children}
     </LibraryContext.Provider>
   );
@@ -367,4 +452,3 @@ export function useLibrary() {
   if (!context) throw new Error('useLibrary must be used within LibraryProvider');
   return context;
 }
-
