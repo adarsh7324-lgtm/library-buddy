@@ -70,6 +70,7 @@ interface LibraryContextType {
   fetchData: () => Promise<void>;
   switchLibrary: (libraryId: string) => void;
   loading: boolean;
+  isAuthChecking: boolean;
   settings: LibrarySettings | null;
 }
 
@@ -92,6 +93,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   });
   const isAuthenticated = !!activeLibraryId;
   const [loading, setLoading] = useState(true);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -113,6 +115,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           toast.success(`Welcome ${session.user.email}! Signed in to Demo Library.`);
         }
       }
+      setIsAuthChecking(false);
     };
     checkUser();
 
@@ -127,6 +130,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           sessionStorage.setItem('librarypro_library_id', 'demolibrary');
           toast.success(`Welcome ${session.user.email}! Signed in to Demo Library.`);
         }
+      } else {
+        setIsAuthChecking(false);
       }
     });
 
@@ -282,7 +287,9 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        // Redirect will be handled automatically, could specify URL if needed
+        options: {
+          redirectTo: window.location.origin,
+        }
       });
       if (error) throw error;
     } catch (error) {
@@ -449,7 +456,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   }, [activeLibraryId]);
 
   return (
-    <LibraryContext.Provider value={{ members, payments, deletedPayments, isAuthenticated, activeLibraryId, login, loginWithGoogle, logout, addMember, updateMember, deleteMember, upgradeMember, addPayment, deletePayment, clearDeletedPayments, updateSettings, fetchData, switchLibrary, loading, settings }}>
+    <LibraryContext.Provider value={{ members, payments, deletedPayments, isAuthenticated, activeLibraryId, login, loginWithGoogle, logout, addMember, updateMember, deleteMember, upgradeMember, addPayment, deletePayment, clearDeletedPayments, updateSettings, fetchData, switchLibrary, loading, isAuthChecking, settings }}>
       {children}
     </LibraryContext.Provider>
   );

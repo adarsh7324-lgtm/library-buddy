@@ -19,7 +19,21 @@ import { ThemeProvider } from "./components/theme-provider";
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, activeLibraryId } = useLibrary();
+  const { isAuthenticated, activeLibraryId, isAuthChecking } = useLibrary();
+
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="animate-pulse flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
+            <div className="w-6 h-6 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          </div>
+          <p className="text-muted-foreground text-sm font-medium">Signing you in...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
   if (activeLibraryId === 'superadmin') {
