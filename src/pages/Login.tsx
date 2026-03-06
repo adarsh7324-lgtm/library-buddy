@@ -8,10 +8,7 @@ import { Label } from '@/components/ui/label';
 import { motion } from 'framer-motion';
 
 const Login = () => {
-  const [email, setEmail] = useState('admin@librarypro.com');
-  const [password, setPassword] = useState('admin123');
-  const [error, setError] = useState('');
-  const { login, loginWithGoogle, isAuthenticated } = useLibrary();
+  const { loginWithGoogle, isAuthenticated } = useLibrary();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -19,15 +16,6 @@ const Login = () => {
       navigate('/');
     }
   }, [isAuthenticated, navigate]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (login(email, password)) {
-      navigate('/');
-    } else {
-      setError('Invalid credentials. Try admin@librarypro.com / admin123');
-    }
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--gradient-hero)' }}>
@@ -46,30 +34,6 @@ const Login = () => {
           </div>
           <p className="text-center text-muted-foreground text-sm mb-8">Smart Library Management System</p>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@librarypro.com" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" />
-            </div>
-            {error && <p className="text-destructive text-sm">{error}</p>}
-            <Button type="submit" className="w-full gap-2">
-              <LogIn className="w-4 h-4" /> Sign In
-            </Button>
-          </form>
-
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border/40" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
-            </div>
-          </div>
-
           <Button
             variant="outline"
             type="button"
@@ -85,7 +49,7 @@ const Login = () => {
             Sign in with Google
           </Button>
 
-          <p className="text-xs text-muted-foreground text-center mt-6">Demo: admin@librarypro.com / admin123</p>
+          <p className="text-xs text-muted-foreground text-center mt-6">Authorized users only</p>
         </div>
       </motion.div>
     </div>

@@ -1,14 +1,24 @@
-import React from 'react';
-import { useLibrary, LIBRARIES } from '@/context/LibraryContext';
+import React, { useEffect, useState } from 'react';
+import { useLibrary } from '@/context/LibraryContext';
+import { supabase } from '@/lib/supabase';
 import { motion } from 'framer-motion';
 import { Library, ArrowRight, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function SuperAdminDashboard() {
     const { switchLibrary, logout } = useLibrary();
+    const [clientLibraries, setClientLibraries] = useState<{ id: string, email: string }[]>([]);
 
-    // Filter out the super admin from the list
-    const clientLibraries = LIBRARIES.filter(lib => !lib.isSuperAdmin);
+    useEffect(() => {
+        const fetchLibraries = async () => {
+            const { data } = await supabase.from('authorized_users').select('email');
+            if (data) {
+                // For now, use the email as the ID in the UI to identify them
+                setClientLibraries(data.map(user => ({ id: user.email, email: user.email })));
+            }
+        };
+        fetchLibraries();
+    }, []);
 
     return (
         <div className="min-h-screen p-6 md:p-12" style={{ background: 'var(--gradient-hero)' }}>

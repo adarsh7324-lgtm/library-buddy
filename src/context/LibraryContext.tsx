@@ -76,13 +76,6 @@ interface LibraryContextType {
 
 const LibraryContext = createContext<LibraryContextType | undefined>(undefined);
 
-export const LIBRARIES = [
-  { id: 'librarypro', email: 'admin@librarypro.com', password: 'admin123' },
-  { id: 'alphalibrary', email: 'alphalibrary@coppercore.co', password: 'CopperCore#1' },
-  { id: 'demolibrary', email: 'demolibrary@coppercore.co', password: 'coppercore#demo' },
-  { id: 'superadmin', email: 'superadmin@coppercore.co', password: 'TopSecretMission@CopperCore', isSuperAdmin: true }
-];
-
 export function LibraryProvider({ children }: { children: ReactNode }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -102,35 +95,58 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    const handleAuthSession = async (session: any) => {
+      if (!session?.user?.email) {
+        setIsAuthChecking(false);
+        return;
+      }
+
+      try {
+        // Check if user exists in authorized_users table
+        const { data: authorizedUser, error } = await supabase
+          .from('authorized_users')
+          .select('*')
+          .eq('email', session.user.email)
+          .single();
+
+        if (error || !authorizedUser) {
+          // User is not authorized
+          toast.error("Access Denied: Your email is not authorized.");
+          await supabase.auth.signOut();
+          setActiveLibraryId(null);
+          sessionStorage.removeItem('librarypro_library_id');
+        } else {
+          // User is authorized, set their own unique ID for multi-tenancy
+          const userId = session.user.id;
+          setActiveLibraryId(userId);
+          sessionStorage.setItem('librarypro_library_id', userId);
+          toast.success(`Welcome back, ${session.user.email}!`);
+        }
+      } catch (err) {
+        console.error('Authorization check failed:', err);
+        toast.error("Failed to verify authorization.");
+      } finally {
+        setIsAuthChecking(false);
+      }
+    };
+
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.email) {
-        const matchedAccount = LIBRARIES.find(lib => lib.email === session.user?.email);
-        if (matchedAccount) {
-          setActiveLibraryId(matchedAccount.id);
-          sessionStorage.setItem('librarypro_library_id', matchedAccount.id);
-        } else {
-          setActiveLibraryId('demolibrary');
-          sessionStorage.setItem('librarypro_library_id', 'demolibrary');
-          toast.success(`Welcome ${session.user.email}! Signed in to Demo Library.`);
-        }
-      }
-      setIsAuthChecking(false);
+      await handleAuthSession(session);
     };
+
     checkUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user?.email) {
-        const matchedAccount = LIBRARIES.find(lib => lib.email === session.user?.email);
-        if (matchedAccount) {
-          setActiveLibraryId(matchedAccount.id);
-          sessionStorage.setItem('librarypro_library_id', matchedAccount.id);
-        } else {
-          setActiveLibraryId('demolibrary');
-          sessionStorage.setItem('librarypro_library_id', 'demolibrary');
-          toast.success(`Welcome ${session.user.email}! Signed in to Demo Library.`);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session) {
+        // Avoid double-checking if we just mounted
+        if (!isAuthChecking) {
+          setIsAuthChecking(true);
+          await handleAuthSession(session);
         }
       } else {
+        setActiveLibraryId(null);
+        sessionStorage.removeItem('librarypro_library_id');
         setIsAuthChecking(false);
       }
     });
@@ -273,13 +289,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   }, [activeLibraryId, fetchMembers, fetchPayments, fetchDeletedPayments, fetchSettings]);
 
   const login = useCallback((email: string, password: string) => {
-    const matchedAccount = LIBRARIES.find(lib => lib.email === email && lib.password === password);
-
-    if (matchedAccount) {
-      setActiveLibraryId(matchedAccount.id);
-      sessionStorage.setItem('librarypro_library_id', matchedAccount.id);
-      return true;
-    }
+    // Legacy credentials login removed in favor of Google OAuth
+    toast.error("Please sign in with Google.");
     return false;
   }, []);
 
