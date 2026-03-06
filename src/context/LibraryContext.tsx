@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
-import { addMonths, format, differenceInDays } from 'date-fns';
+import { addMonths, addDays, format, differenceInDays } from 'date-fns';
 import { toast } from 'sonner';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -62,7 +62,7 @@ interface LibraryContextType {
   addMember: (member: Omit<Member, 'id' | 'libraryId'>, photoBase64?: string) => Promise<string>;
   updateMember: (id: string, member: Partial<Member>) => Promise<void>;
   deleteMember: (id: string) => Promise<void>;
-  upgradeMember: (id: string, additionalMonths: number) => Promise<void>;
+  upgradeMember: (id: string, additionalMonths: number, additionalDays?: number) => Promise<void>;
   addPayment: (payment: Omit<Payment, 'id' | 'libraryId'>) => Promise<void>;
   deletePayment: (id: string) => Promise<void>;
   clearDeletedPayments: (password: string) => Promise<void>;
@@ -250,7 +250,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const upgradeMember = useCallback(async (id: string, additionalMonths: number) => {
+  const upgradeMember = useCallback(async (id: string, additionalMonths: number, additionalDays?: number) => {
     try {
       // Find the current member state locally to calculate the new expiry
       const member = members.find(m => m.id === id);
@@ -258,13 +258,19 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
       const currentExpiry = new Date(member.expiryDate);
       const baseDate = currentExpiry > new Date() ? currentExpiry : new Date();
-      const newExpiry = addMonths(baseDate, additionalMonths);
+      const newExpiry = additionalDays
+        ? addDays(baseDate, additionalDays)
+        : addMonths(baseDate, additionalMonths);
 
       const updateData: Partial<Member> = {
         months: member.months + additionalMonths,
         expiryDate: format(newExpiry, 'yyyy-MM-dd'),
         status: 'Active',
       };
+
+      if (additionalDays) {
+        updateData.customDays = (member.customDays || 0) + additionalDays;
+      }
 
       const memberRef = doc(db, 'members', id);
       await updateDoc(memberRef, updateData);

@@ -169,13 +169,13 @@ const AddMember = () => {
       return;
     }
     try {
-      const newMemberId = await addMember({
+      const memberData: any = {
         fullName: form.fullName,
         phone: form.phone,
         countryCode: form.countryCode,
         address: form.address,
         idProofNumber: form.idProofNumber,
-        months: Number(form.months),
+        months: form.months === 'custom' ? 0 : Number(form.months),
         feesPaid: Number(form.feesPaid) || 0,
         startDate: form.startDate,
         expiryDate,
@@ -183,17 +183,27 @@ const AddMember = () => {
         seatNumber: form.seatNumber,
         startTime: form.startTime,
         endTime: form.endTime,
-      }, photoBase64 || undefined);
+        lockerFacility: form.lockerFacility,
+      };
+
+      if (form.months === 'custom') {
+        memberData.customDays = Number(form.customDays);
+      }
+
+      const newMemberId = await addMember(memberData, photoBase64 || undefined);
 
       if (Number(form.feesPaid) > 0) {
-        await addPayment({
+        const paymentData: any = {
           memberId: newMemberId,
           amount: Number(form.feesPaid),
           months: form.months === 'custom' ? 0 : Number(form.months),
-          customDays: form.months === 'custom' ? Number(form.customDays) : undefined,
           date: form.startDate,
           note: 'Initial Registration Fee',
-        });
+        };
+        if (form.months === 'custom') {
+          paymentData.customDays = Number(form.customDays);
+        }
+        await addPayment(paymentData);
       }
       toast.success('Member added successfully!');
 

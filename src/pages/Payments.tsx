@@ -19,7 +19,7 @@ const Payments = () => {
   const { members, payments, deletedPayments, addPayment, upgradeMember, deletePayment, clearDeletedPayments } = useLibrary();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [openMemberSelect, setOpenMemberSelect] = useState(false);
-  const [form, setForm] = useState({ memberId: '', amount: '', months: '', note: '' });
+  const [form, setForm] = useState({ memberId: '', amount: '', months: '', customDays: '', note: '' });
   const [viewDeleted, setViewDeleted] = useState(false);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearPassword, setClearPassword] = useState('');
@@ -30,16 +30,27 @@ const Payments = () => {
       return;
     }
     try {
+      if (form.months === 'custom' && !form.customDays) {
+        toast.error('Please specify custom days count');
+        return;
+      }
+
       const paymentDate = format(new Date(), 'yyyy-MM-dd');
-      await addPayment({
+      const paymentData: any = {
         memberId: form.memberId,
         amount: Number(form.amount),
-        months: Number(form.months),
+        months: form.months === 'custom' ? 0 : Number(form.months),
         date: paymentDate,
         note: form.note,
-      });
+      };
+      if (form.months === 'custom') {
+        paymentData.customDays = Number(form.customDays);
+      }
+      await addPayment(paymentData);
 
-      if (Number(form.months) > 0) {
+      if (form.months === 'custom' && Number(form.customDays) > 0) {
+        await upgradeMember(form.memberId, 0, Number(form.customDays));
+      } else if (Number(form.months) > 0) {
         await upgradeMember(form.memberId, Number(form.months));
       }
 
@@ -50,7 +61,9 @@ const Payments = () => {
       if (member && member.phone) {
         let message = `*Payment Confirmation* ✅\n\nDear ${member.fullName},\nWe have successfully received your payment.\n\n*Details:*\n💰 Amount: ₹${form.amount}\n`;
 
-        if (Number(form.months) > 0) {
+        if (form.months === 'custom' && Number(form.customDays) > 0) {
+          message += `⏳ Membership Extended: ${form.customDays} day(s)\n`;
+        } else if (Number(form.months) > 0) {
           message += `⏳ Membership Extended: ${form.months} month(s)\n`;
         }
 
@@ -68,7 +81,7 @@ const Payments = () => {
       }
 
       setDialogOpen(false);
-      setForm({ memberId: '', amount: '', months: '', note: '' });
+      setForm({ memberId: '', amount: '', months: '', customDays: '', note: '' });
     } catch (error) {
       toast.error('Failed to register payment');
     }
@@ -103,7 +116,7 @@ const Payments = () => {
       return [
         format(parseISO(p.date), 'MMM d, yyyy'),
         member?.fullName ?? 'Unknown',
-        `${p.months} month(s)`,
+        p.customDays ? `${p.customDays} day(s)` : `${p.months} month(s)`,
         `Rs. ${p.amount}`,
         p.note || '—'
       ];
@@ -163,7 +176,7 @@ const Payments = () => {
                 <motion.tr key={payment.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }} className="border-b border-border/30 hover:bg-muted/30 transition-colors">
                   <td className="py-3 px-4 text-muted-foreground">{format(parseISO(payment.date), 'MMM d, yyyy')}</td>
                   <td className="py-3 px-4 font-medium text-foreground">{member?.fullName ?? 'Unknown'}</td>
-                  <td className="py-3 px-4 text-muted-foreground">{payment.months} month{payment.months !== 1 ? 's' : ''}</td>
+                  <td className="py-3 px-4 text-muted-foreground">{payment.customDays ? `${payment.customDays} day(s)` : `${payment.months} month(s)`}</td>
                   <td className="py-3 px-4 text-foreground font-medium">₹{payment.amount.toLocaleString()}</td>
                   <td className="py-3 px-4 text-muted-foreground">{payment.note || '—'}</td>
                   {!viewDeleted && (
@@ -200,7 +213,7 @@ const Payments = () => {
               </div>
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{format(parseISO(payment.date), 'MMM d, yyyy')}</span>
-                <span>{payment.months} month{payment.months !== 1 ? 's' : ''}</span>
+                <span>{payment.customDays ? `${payment.customDays} day(s)` : `${payment.months} month(s)`}</span>
               </div>
               {payment.note && <p className="text-xs text-muted-foreground mt-1">{payment.note}</p>}
             </motion.div>
@@ -261,14 +274,21 @@ const Payments = () => {
               </Popover>
             </div>
             <div>
-              <Label>Months to Add *</Label>
-              <Select value={form.months} onValueChange={v => setForm(f => ({ ...f, months: v }))}>
-                <SelectTrigger><SelectValue placeholder="Select months" /></SelectTrigger>
+              <Label>Duration to Add *</Label>
+              <Select value={form.months} onValueChange={v => setForm(f => ({ ...f, months: v, customDays: '' }))}>
+                <SelectTrigger><SelectValue placeholder="Select duration" /></SelectTrigger>
                 <SelectContent>
                   {[0, 1, 2, 3, 6, 12].map(m => <SelectItem key={m} value={String(m)}>{m} month{m !== 1 ? 's' : ''}</SelectItem>)}
+                  <SelectItem value="custom">Custom (Days)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {form.months === 'custom' && (
+              <div>
+                <Label>Number of Days *</Label>
+                <Input type="number" min="1" value={form.customDays} onChange={e => setForm(f => ({ ...f, customDays: e.target.value }))} placeholder="e.g. 15" />
+              </div>
+            )}
             <div>
               <Label>Amount Paid (₹) *</Label>
               <Input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="e.g. 500" />
