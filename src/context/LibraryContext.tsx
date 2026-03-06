@@ -107,6 +107,10 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         if (matchedAccount) {
           setActiveLibraryId(matchedAccount.id);
           sessionStorage.setItem('librarypro_library_id', matchedAccount.id);
+        } else {
+          setActiveLibraryId('demolibrary');
+          sessionStorage.setItem('librarypro_library_id', 'demolibrary');
+          toast.success(`Welcome ${session.user.email}! Signed in to Demo Library.`);
         }
       }
     };
@@ -118,6 +122,10 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         if (matchedAccount) {
           setActiveLibraryId(matchedAccount.id);
           sessionStorage.setItem('librarypro_library_id', matchedAccount.id);
+        } else {
+          setActiveLibraryId('demolibrary');
+          sessionStorage.setItem('librarypro_library_id', 'demolibrary');
+          toast.success(`Welcome ${session.user.email}! Signed in to Demo Library.`);
         }
       }
     });

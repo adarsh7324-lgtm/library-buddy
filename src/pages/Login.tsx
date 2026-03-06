@@ -1,6 +1,6 @@
-import { useState } from 'react';
 import { useLibrary } from '@/context/LibraryContext';
 import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { BookOpen, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,8 +11,14 @@ const Login = () => {
   const [email, setEmail] = useState('admin@librarypro.com');
   const [password, setPassword] = useState('admin123');
   const [error, setError] = useState('');
-  const { login, loginWithGoogle } = useLibrary();
+  const { login, loginWithGoogle, isAuthenticated } = useLibrary();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
