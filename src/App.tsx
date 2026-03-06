@@ -12,7 +12,9 @@ import Payments from "./pages/Payments";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import Reminders from "./pages/Reminders";
+import Seats from "./pages/Seats";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
+import { ThemeProvider } from "./components/theme-provider";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +35,7 @@ const AppRoutes = () => (
     <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
     <Route path="/members" element={<ProtectedRoute><Members /></ProtectedRoute>} />
     <Route path="/add-member" element={<ProtectedRoute><AddMember /></ProtectedRoute>} />
+    <Route path="/seats" element={<ProtectedRoute><Seats /></ProtectedRoute>} />
     <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
     <Route path="/reminders" element={<ProtectedRoute><Reminders /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
@@ -45,9 +48,11 @@ const App = () => (
       <Toaster />
       <Sonner />
       <LibraryProvider>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
+        <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </ThemeProvider>
       </LibraryProvider>
     </TooltipProvider>
   </QueryClientProvider>

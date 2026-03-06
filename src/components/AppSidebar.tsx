@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 const navItems = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
   { title: 'Members', url: '/members', icon: Users },
+  { title: 'Seats', url: '/seats', icon: BookOpen },
   { title: 'Add Member', url: '/add-member', icon: UserPlus },
   { title: 'Payments', url: '/payments', icon: IndianRupee },
   { title: 'Reminders', url: '/reminders', icon: Bell },

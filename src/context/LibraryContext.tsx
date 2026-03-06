@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { addMonths, format, differenceInDays } from 'date-fns';
 import { toast } from 'sonner';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 export interface Member {
@@ -18,7 +18,13 @@ export interface Member {
   expiryDate: string;
   status: 'Active' | 'Expired' | 'Expiring Soon';
   seatNumber?: string;
+  startTime?: string;
+  endTime?: string;
   photoUrl?: string;
+}
+
+export interface LibrarySettings {
+  totalSeats?: number;
 }
 
 export interface Payment {
@@ -50,9 +56,11 @@ interface LibraryContextType {
   addPayment: (payment: Omit<Payment, 'id' | 'libraryId'>) => Promise<void>;
   deletePayment: (id: string) => Promise<void>;
   clearDeletedPayments: (password: string) => Promise<void>;
+  updateSettings: (settings: Partial<LibrarySettings>) => Promise<void>;
   fetchData: () => Promise<void>;
   switchLibrary: (libraryId: string) => void;
   loading: boolean;
+  settings: LibrarySettings | null;
 }
 
 const LibraryContext = createContext<LibraryContextType | undefined>(undefined);
@@ -68,6 +76,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [deletedPayments, setDeletedPayments] = useState<DeletedPayment[]>([]);
+  const [settings, setSettings] = useState<LibrarySettings | null>(null);
   const [activeLibraryId, setActiveLibraryId] = useState<string | null>(() => {
     return sessionStorage.getItem('librarypro_library_id');
   });
@@ -88,6 +97,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       setMembers([]);
       setPayments([]);
       setDeletedPayments([]);
+      setSettings(null);
       setLoading(false);
       return;
     }
@@ -151,10 +161,22 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       console.error('Error listening to deleted payments:', error);
     });
 
+    const settingsRef = doc(db, 'settings', activeLibraryId);
+    const unsubscribeSettings = onSnapshot(settingsRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setSettings(docSnap.data() as LibrarySettings);
+      } else {
+        setSettings({});
+      }
+    }, (error) => {
+      console.error('Error listening to settings:', error);
+    });
+
     return () => {
       unsubscribeMembers();
       unsubscribePayments();
       unsubscribeDeletedPayments();
+      unsubscribeSettings();
     };
   }, [activeLibraryId]);
 
@@ -305,8 +327,20 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     }
   }, [deletedPayments]);
 
+  const updateSettings = useCallback(async (newSettings: Partial<LibrarySettings>) => {
+    if (!activeLibraryId) throw new Error('No active library session');
+    try {
+      const settingsRef = doc(db, 'settings', activeLibraryId);
+      await setDoc(settingsRef, newSettings, { merge: true });
+    } catch (error) {
+      console.error('Error updating settings:', error);
+      toast.error('Failed to update settings');
+      throw error;
+    }
+  }, [activeLibraryId]);
+
   return (
-    <LibraryContext.Provider value={{ members, payments, deletedPayments, isAuthenticated, activeLibraryId, login, logout, addMember, updateMember, deleteMember, upgradeMember, addPayment, deletePayment, clearDeletedPayments, fetchData, switchLibrary, loading }}>
+    <LibraryContext.Provider value={{ members, payments, deletedPayments, isAuthenticated, activeLibraryId, login, logout, addMember, updateMember, deleteMember, upgradeMember, addPayment, deletePayment, clearDeletedPayments, updateSettings, fetchData, switchLibrary, loading, settings }}>
       {children}
     </LibraryContext.Provider>
   );

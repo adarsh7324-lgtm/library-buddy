@@ -50,13 +50,14 @@ const Members = () => {
       m.fullName,
       `${m.countryCode} ${m.phone}`,
       m.seatNumber || '-',
+      m.startTime ? `${m.startTime} - ${m.endTime}` : '-',
       m.startDate ? format(parseISO(m.startDate), 'MMM d, yyyy') : '-',
       format(parseISO(m.expiryDate), 'MMM d, yyyy'),
       m.status
     ]);
 
     autoTable(doc, {
-      head: [['Name', 'Phone', 'Seat', 'Join Date', 'Expiry', 'Status']],
+      head: [['Name', 'Phone', 'Seat', 'Time', 'Join Date', 'Expiry', 'Status']],
       body: tableData,
       startY: 20,
       theme: 'grid',
@@ -103,6 +104,7 @@ const Members = () => {
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Name</th>
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Phone</th>
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Seat</th>
+              <th className="text-left py-3 px-4 font-medium text-muted-foreground">Time</th>
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Join Date</th>
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Expiry</th>
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
@@ -115,6 +117,7 @@ const Members = () => {
                 <td className="py-3 px-4 font-medium text-foreground">{member.fullName}</td>
                 <td className="py-3 px-4 text-muted-foreground">{member.countryCode} {member.phone}</td>
                 <td className="py-3 px-4 text-muted-foreground">{member.seatNumber || '-'}</td>
+                <td className="py-3 px-4 text-muted-foreground">{member.startTime ? `${member.startTime} - ${member.endTime}` : '-'}</td>
                 <td className="py-3 px-4 text-muted-foreground">{member.startDate ? format(parseISO(member.startDate), 'MMM d, yyyy') : '-'}</td>
                 <td className="py-3 px-4 text-muted-foreground">{format(parseISO(member.expiryDate), 'MMM d, yyyy')}</td>
                 <td className="py-3 px-4">
@@ -152,7 +155,7 @@ const Members = () => {
             <div className="flex items-start justify-between mb-2">
               <div>
                 <p className="font-medium text-foreground">{member.fullName}</p>
-                <p className="text-xs text-muted-foreground">{member.countryCode} {member.phone} {member.seatNumber ? `• Seat: ${member.seatNumber}` : ''}</p>
+                <p className="text-xs text-muted-foreground">{member.countryCode} {member.phone} {member.seatNumber ? `• Seat: ${member.seatNumber}` : ''} {member.startTime ? `• Time: ${member.startTime} - ${member.endTime}` : ''}</p>
               </div>
               <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${member.status === 'Active' ? 'bg-success/10 text-success' :
                 member.status === 'Expiring Soon' ? 'bg-warning/10 text-warning' :
@@ -215,6 +218,10 @@ const Members = () => {
                       <div className="col-span-1">
                         <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-0.5">Seat Number</p>
                         <p className="font-medium text-sm">{member.seatNumber || 'N/A'}</p>
+                      </div>
+                      <div className="col-span-1">
+                        <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-0.5">Time Slot</p>
+                        <p className="font-medium text-sm">{member.startTime ? `${member.startTime} - ${member.endTime}` : 'N/A'}</p>
                       </div>
                       <div className="col-span-2">
                         <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-0.5">Address</p>

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useLibrary } from '@/context/LibraryContext';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
@@ -11,12 +11,18 @@ import { toast } from 'sonner';
 import { UserPlus, Camera, RefreshCcw, X, Video } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+const timeToMinutes = (time?: string) => {
+  if (!time) return 0;
+  const [hours, minutes] = time.split(':').map(Number);
+  return hours * 60 + minutes;
+};
+
 const AddMember = () => {
-  const { addMember, addPayment } = useLibrary();
+  const { addMember, addPayment, settings, members } = useLibrary();
   const navigate = useNavigate();
   const [form, setForm] = useState({
     fullName: '', phone: '', countryCode: '+91', address: '', idProofNumber: '',
-    months: '', feesPaid: '', startDate: format(new Date(), 'yyyy-MM-dd'), seatNumber: '',
+    months: '', feesPaid: '', startDate: format(new Date(), 'yyyy-MM-dd'), seatNumber: '', startTime: '09:00', endTime: '18:00',
   });
 
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
@@ -105,6 +111,34 @@ const AddMember = () => {
   };
 
 
+  const availableSeats = useMemo(() => {
+    if (!settings?.totalSeats) return [];
+
+    const total = settings.totalSeats;
+    const available = [];
+    const filterStartMins = timeToMinutes(form.startTime);
+    const filterEndMins = timeToMinutes(form.endTime);
+
+    for (let i = 1; i <= total; i++) {
+      const seatName = `Seat ${i}`;
+      const isOccupied = members.some(m => {
+        if (m.status === 'Expired') return false;
+        if (m.seatNumber !== seatName && m.seatNumber !== String(i)) return false;
+        if (!m.startTime || !m.endTime) return false;
+
+        const memberStartMins = timeToMinutes(m.startTime);
+        const memberEndMins = timeToMinutes(m.endTime);
+
+        return Math.max(filterStartMins, memberStartMins) < Math.min(filterEndMins, memberEndMins);
+      });
+
+      if (!isOccupied) {
+        available.push(seatName);
+      }
+    }
+    return available;
+  }, [settings?.totalSeats, members, form.startTime, form.endTime]);
+
   const expiryDate = form.months && form.startDate
     ? format(addMonths(new Date(form.startDate), Number(form.months)), 'yyyy-MM-dd')
     : '';
@@ -128,6 +162,8 @@ const AddMember = () => {
         expiryDate,
         status: 'Active',
         seatNumber: form.seatNumber,
+        startTime: form.startTime,
+        endTime: form.endTime,
       }, photoBase64 || undefined);
 
       if (Number(form.feesPaid) > 0) {
@@ -246,8 +282,22 @@ const AddMember = () => {
               <Input value={form.idProofNumber} onChange={e => setForm(f => ({ ...f, idProofNumber: e.target.value }))} placeholder="Aadhaar / PAN / DL" />
             </div>
             <div>
+              <Label>Start Time</Label>
+              <Input type="time" value={form.startTime} onChange={e => setForm(f => ({ ...f, startTime: e.target.value, seatNumber: '' }))} />
+            </div>
+            <div>
+              <Label>End Time</Label>
+              <Input type="time" value={form.endTime} onChange={e => setForm(f => ({ ...f, endTime: e.target.value, seatNumber: '' }))} />
+            </div>
+            <div>
               <Label>Seat Number (optional)</Label>
-              <Input value={form.seatNumber} onChange={e => setForm(f => ({ ...f, seatNumber: e.target.value }))} placeholder="E.g., A12" />
+              <Select value={form.seatNumber} onValueChange={v => setForm(f => ({ ...f, seatNumber: v }))}>
+                <SelectTrigger><SelectValue placeholder="Select available seat" /></SelectTrigger>
+                <SelectContent>
+                  {availableSeats.length === 0 && <SelectItem value="_disabled" disabled>No seats available</SelectItem>}
+                  {availableSeats.map(seat => <SelectItem key={seat} value={seat}>{seat}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label>Membership Duration *</Label>
