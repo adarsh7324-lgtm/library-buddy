@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { addMonths, format } from 'date-fns';
 import { toast } from 'sonner';
@@ -22,7 +23,7 @@ const AddMember = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     fullName: '', phone: '', countryCode: '+91', address: '', idProofNumber: '',
-    months: '', feesPaid: '', startDate: format(new Date(), 'yyyy-MM-dd'), seatNumber: '', startTime: '09:00', endTime: '18:00',
+    months: '', feesPaid: '', startDate: format(new Date(), 'yyyy-MM-dd'), seatNumber: '', startTime: '09:00', endTime: '18:00', lockerFacility: false
   });
 
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
@@ -280,6 +281,16 @@ const AddMember = () => {
             <div>
               <Label>ID Proof Number (optional)</Label>
               <Input value={form.idProofNumber} onChange={e => setForm(f => ({ ...f, idProofNumber: e.target.value }))} placeholder="Aadhaar / PAN / DL" />
+            </div>
+            <div className="flex flex-col space-y-2">
+              <Label>Locker Facility</Label>
+              <div className="flex items-center space-x-2 h-10">
+                <Switch
+                  checked={form.lockerFacility}
+                  onCheckedChange={(checked) => setForm(f => ({ ...f, lockerFacility: checked }))}
+                />
+                <span className="text-sm font-medium text-muted-foreground">{form.lockerFacility ? 'Opted In' : 'Not Required'}</span>
+              </div>
             </div>
             <div>
               <Label>Start Time</Label>

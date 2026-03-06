@@ -228,6 +228,10 @@ const Members = () => {
                         <p className="font-medium text-sm truncate" title={member.address}>{member.address || 'N/A'}</p>
                       </div>
                       <div className="col-span-1">
+                        <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-0.5">Locker</p>
+                        <p className="font-medium text-sm font-bold text-foreground">{member.lockerFacility ? 'Yes' : 'No'}</p>
+                      </div>
+                      <div className="col-span-1">
                         <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-0.5">ID Proof</p>
                         <p className="font-medium text-sm">{member.idProofNumber || 'N/A'}</p>
                       </div>

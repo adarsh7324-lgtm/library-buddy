@@ -20,6 +20,7 @@ export interface Member {
   seatNumber?: string;
   startTime?: string;
   endTime?: string;
+  lockerFacility?: boolean;
   photoUrl?: string;
 }
 
