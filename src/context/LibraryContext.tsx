@@ -21,11 +21,19 @@ export interface Member {
   startTime?: string;
   endTime?: string;
   lockerFacility?: boolean;
+  customDays?: number;
   photoUrl?: string;
+}
+
+export interface Room {
+  id: string;
+  name: string;
+  capacity: number;
 }
 
 export interface LibrarySettings {
   totalSeats?: number;
+  rooms?: Room[];
 }
 
 export interface Payment {
@@ -34,6 +42,7 @@ export interface Payment {
   memberId: string;
   amount: number;
   months: number;
+  customDays?: number;
   date: string;
   note: string;
 }

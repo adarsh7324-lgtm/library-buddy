@@ -63,11 +63,11 @@ const Dashboard = () => {
             <div key={member.id} className="flex items-center justify-between py-2 border-b border-border/40 last:border-0">
               <div>
                 <p className="font-medium text-sm text-foreground">{member.fullName}</p>
-                <p className="text-xs text-muted-foreground">{member.months} month{member.months > 1 ? 's' : ''} • Joined {member.startDate ? format(parseISO(member.startDate), 'MMM d, yyyy') : 'N/A'}</p>
+                <p className="text-xs text-muted-foreground">{member.customDays ? `${member.customDays} day(s)` : `${member.months} month(s)`} • Joined {member.startDate ? format(parseISO(member.startDate), 'MMM d, yyyy') : 'N/A'}</p>
               </div>
               <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${member.status === 'Active' ? 'bg-success/10 text-success' :
-                  member.status === 'Expiring Soon' ? 'bg-warning/10 text-warning' :
-                    'bg-destructive/10 text-destructive'
+                member.status === 'Expiring Soon' ? 'bg-warning/10 text-warning' :
+                  'bg-destructive/10 text-destructive'
                 }`}>
                 {member.status}
               </span>

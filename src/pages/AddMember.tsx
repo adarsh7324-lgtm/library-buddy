@@ -4,10 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { addMonths, format } from 'date-fns';
+import { addMonths, addDays, format } from 'date-fns';
 import { toast } from 'sonner';
 import { UserPlus, Camera, RefreshCcw, X, Video } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -23,7 +23,7 @@ const AddMember = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     fullName: '', phone: '', countryCode: '+91', address: '', idProofNumber: '',
-    months: '', feesPaid: '', startDate: format(new Date(), 'yyyy-MM-dd'), seatNumber: '', startTime: '09:00', endTime: '18:00', lockerFacility: false
+    months: '', customDays: '', feesPaid: '', startDate: format(new Date(), 'yyyy-MM-dd'), seatNumber: '', startTime: '09:00', endTime: '18:00', lockerFacility: false
   });
 
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
@@ -112,42 +112,60 @@ const AddMember = () => {
   };
 
 
-  const availableSeats = useMemo(() => {
-    if (!settings?.totalSeats) return [];
+  const availableSeatsByRoom = useMemo(() => {
+    if (!settings?.rooms || settings.rooms.length === 0) return {};
 
-    const total = settings.totalSeats;
-    const available = [];
+    const availableByRoom: { [key: string]: string[] } = {};
     const filterStartMins = timeToMinutes(form.startTime);
     const filterEndMins = timeToMinutes(form.endTime);
 
-    for (let i = 1; i <= total; i++) {
-      const seatName = `Seat ${i}`;
-      const isOccupied = members.some(m => {
-        if (m.status === 'Expired') return false;
-        if (m.seatNumber !== seatName && m.seatNumber !== String(i)) return false;
-        if (!m.startTime || !m.endTime) return false;
+    settings.rooms.forEach(room => {
+      const roomSeats = [];
+      for (let i = 1; i <= room.capacity; i++) {
+        const seatIdStr = `${room.name} - Seat ${i}`;
+        const isOccupied = members.some(m => {
+          if (m.status === 'Expired') return false;
+          if (m.seatNumber !== seatIdStr) return false;
+          if (!m.startTime || !m.endTime) return false;
 
-        const memberStartMins = timeToMinutes(m.startTime);
-        const memberEndMins = timeToMinutes(m.endTime);
+          const memberStartMins = timeToMinutes(m.startTime);
+          const memberEndMins = timeToMinutes(m.endTime);
 
-        return Math.max(filterStartMins, memberStartMins) < Math.min(filterEndMins, memberEndMins);
-      });
+          return Math.max(filterStartMins, memberStartMins) < Math.min(filterEndMins, memberEndMins);
+        });
 
-      if (!isOccupied) {
-        available.push(seatName);
+        if (!isOccupied) {
+          roomSeats.push(seatIdStr);
+        }
       }
-    }
-    return available;
-  }, [settings?.totalSeats, members, form.startTime, form.endTime]);
+      if (roomSeats.length > 0) {
+        availableByRoom[room.name] = roomSeats;
+      }
+    });
 
-  const expiryDate = form.months && form.startDate
-    ? format(addMonths(new Date(form.startDate), Number(form.months)), 'yyyy-MM-dd')
-    : '';
+    return availableByRoom;
+  }, [settings?.rooms, members, form.startTime, form.endTime]);
+
+  const expiryDate = useMemo(() => {
+    if (!form.startDate || !form.months) return '';
+    const baseDate = new Date(form.startDate);
+
+    if (form.months === 'custom' && form.customDays) {
+      return format(addDays(baseDate, Number(form.customDays)), 'yyyy-MM-dd');
+    } else if (form.months !== 'custom') {
+      return format(addMonths(baseDate, Number(form.months)), 'yyyy-MM-dd');
+    }
+    return '';
+  }, [form.startDate, form.months, form.customDays]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.fullName || !form.phone || !form.months || !form.startDate) {
       toast.error('Please fill all required fields');
+      return;
+    }
+    if (form.months === 'custom' && !form.customDays) {
+      toast.error('Please specify custom days count');
       return;
     }
     try {
@@ -171,14 +189,16 @@ const AddMember = () => {
         await addPayment({
           memberId: newMemberId,
           amount: Number(form.feesPaid),
-          months: Number(form.months),
+          months: form.months === 'custom' ? 0 : Number(form.months),
+          customDays: form.months === 'custom' ? Number(form.customDays) : undefined,
           date: form.startDate,
           note: 'Initial Registration Fee',
         });
       }
       toast.success('Member added successfully!');
 
-      const message = `*Congratulations ${form.fullName}!* 🎉\nYou are now a member of the library.\n\n*Membership Details:*\n📱 Phone: ${form.countryCode} ${form.phone}\n⏳ Duration: ${form.months} month(s)\n💰 Fees Paid: ₹${form.feesPaid || 0}\n📅 Join Date: ${format(new Date(form.startDate), 'dd MMM yyyy')}\n⌛ Expiry Date: ${format(new Date(expiryDate), 'dd MMM yyyy')}\n\nWelcome aboard! 📚`;
+      const durationText = form.months === 'custom' ? `${form.customDays} day(s)` : `${form.months} month(s)`;
+      const message = `*Congratulations ${form.fullName}!* 🎉\nYou are now a member of the library.\n\n*Membership Details:*\n📱 Phone: ${form.countryCode} ${form.phone}\n⏳ Duration: ${durationText}\n💰 Fees Paid: ₹${form.feesPaid || 0}\n📅 Join Date: ${format(new Date(form.startDate), 'dd MMM yyyy')}\n⌛ Expiry Date: ${format(new Date(expiryDate), 'dd MMM yyyy')}\n\nWelcome aboard! 📚`;
 
       const encodedMessage = encodeURIComponent(message);
       const waNumber = `${form.countryCode.replace('+', '')}${form.phone}`;
@@ -305,20 +325,32 @@ const AddMember = () => {
               <Select value={form.seatNumber} onValueChange={v => setForm(f => ({ ...f, seatNumber: v }))}>
                 <SelectTrigger><SelectValue placeholder="Select available seat" /></SelectTrigger>
                 <SelectContent>
-                  {availableSeats.length === 0 && <SelectItem value="_disabled" disabled>No seats available</SelectItem>}
-                  {availableSeats.map(seat => <SelectItem key={seat} value={seat}>{seat}</SelectItem>)}
+                  {Object.keys(availableSeatsByRoom).length === 0 && <SelectItem value="_disabled" disabled>No seats available for time</SelectItem>}
+                  {Object.entries(availableSeatsByRoom).map(([roomName, seats]) => (
+                    <SelectGroup key={roomName}>
+                      <SelectLabel>{roomName}</SelectLabel>
+                      {seats.map(seat => <SelectItem key={seat} value={seat}>{seat}</SelectItem>)}
+                    </SelectGroup>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
               <Label>Membership Duration *</Label>
-              <Select value={form.months} onValueChange={v => setForm(f => ({ ...f, months: v }))}>
+              <Select value={form.months} onValueChange={v => setForm(f => ({ ...f, months: v, customDays: '' }))}>
                 <SelectTrigger><SelectValue placeholder="Select months" /></SelectTrigger>
                 <SelectContent>
                   {[1, 2, 3, 6, 12].map(m => <SelectItem key={m} value={String(m)}>{m} month{m > 1 ? 's' : ''}</SelectItem>)}
+                  <SelectItem value="custom">Custom (Days)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {form.months === 'custom' && (
+              <div>
+                <Label>Number of Days *</Label>
+                <Input type="number" min="1" value={form.customDays} onChange={e => setForm(f => ({ ...f, customDays: e.target.value }))} placeholder="e.g. 15" />
+              </div>
+            )}
             <div>
               <Label>Fees Paid (₹)</Label>
               <Input type="number" value={form.feesPaid} onChange={e => setForm(f => ({ ...f, feesPaid: e.target.value }))} placeholder="Amount paid" />

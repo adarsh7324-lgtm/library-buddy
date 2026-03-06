@@ -237,7 +237,7 @@ const Members = () => {
                       </div>
                       <div className="col-span-1">
                         <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-0.5">Duration</p>
-                        <p className="font-medium text-sm">{member.months} Month(s)</p>
+                        <p className="font-medium text-sm">{member.customDays ? `${member.customDays} Day(s)` : `${member.months} Month(s)`}</p>
                       </div>
                       <div className="col-span-1">
                         <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-0.5">Joined</p>

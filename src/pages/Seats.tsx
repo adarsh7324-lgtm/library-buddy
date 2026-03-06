@@ -7,6 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { motion } from 'framer-motion';
 import { User, Armchair, Clock, Hash, MapPin, CalendarDays, Phone } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import { Trash2 } from 'lucide-react';
+import { Member } from '@/context/LibraryContext';
 
 const timeToMinutes = (time?: string) => {
     if (!time) return 0;
@@ -16,87 +18,147 @@ const timeToMinutes = (time?: string) => {
 
 const Seats = () => {
     const { settings, updateSettings, members } = useLibrary();
-    const [initializeInput, setInitializeInput] = useState('');
+    const [numRoomsInput, setNumRoomsInput] = useState('');
+    const [setupStep, setSetupStep] = useState<1 | 2>(1);
+    const [roomCapacities, setRoomCapacities] = useState<{ [key: string]: number }>({});
 
-    // Time filters state, defaulting to current hour to next hour
+    // Time filters state
     const now = new Date();
     const currentHour = now.getHours().toString().padStart(2, '0') + ':00';
     const nextHour = (now.getHours() + 1).toString().padStart(2, '0') + ':00';
     const [startTime, setStartTime] = useState(currentHour);
     const [endTime, setEndTime] = useState(nextHour);
 
-    const [selectedSeat, setSelectedSeat] = useState<number | null>(null);
+    const [selectedSeat, setSelectedSeat] = useState<string | null>(null);
 
-    const handleInitialize = async () => {
-        const total = parseInt(initializeInput);
+    const handleSetupNumRooms = () => {
+        const total = parseInt(numRoomsInput);
         if (!isNaN(total) && total > 0) {
-            await updateSettings({ totalSeats: total });
+            const initialCapacities: { [key: string]: number } = {};
+            for (let i = 1; i <= total; i++) {
+                initialCapacities[`room-${i}`] = 20; // Default capacity
+            }
+            setRoomCapacities(initialCapacities);
+            setSetupStep(2);
         }
     };
 
-    // Derive seat statuses based on selected time
-    const seatData = useMemo(() => {
-        if (!settings?.totalSeats) return [];
+    const handleFinalizeSetup = async () => {
+        const roomsToSave = Object.entries(roomCapacities).map(([id, cap], index) => ({
+            id: id,
+            name: `Room ${index + 1}`,
+            capacity: cap
+        }));
+        await updateSettings({ rooms: roomsToSave });
+    };
 
-        const totalSeats = settings.totalSeats;
-        const data = [];
+    const resetSetup = async () => {
+        await updateSettings({ rooms: [] });
+        setSetupStep(1);
+        setNumRoomsInput('');
+    }
+
+    // Derive seat statuses based on selected time per room
+    const roomsData = useMemo(() => {
+        if (!settings?.rooms || settings.rooms.length === 0) return [];
 
         const filterStartMins = timeToMinutes(startTime);
         const filterEndMins = timeToMinutes(endTime);
 
-        for (let i = 1; i <= totalSeats; i++) {
-            const seatName = `Seat ${i}`;
+        return settings.rooms.map(room => {
+            const seats = [];
+            for (let i = 1; i <= room.capacity; i++) {
+                const seatIdStr = `${room.name} - Seat ${i}`; // e.g., "Room 1 - Seat 5"
 
-            // Find an active/expired member occupying this seat during the filtered time
-            const occupant = members.find(m => {
-                if (m.seatNumber !== seatName && m.seatNumber !== String(i)) return false;
+                // Find an active/expired member occupying this exact composite seat string during the filtered time
+                const occupant = members.find(m => {
+                    // Backwards compatibility for old "Seat X" or "X" formats logic skipped, 
+                    // assuming new members will use exact string matches.
+                    if (m.seatNumber !== seatIdStr) return false;
 
-                // Time overlap logic
-                if (!m.startTime || !m.endTime) return false;
-                const memberStartMins = timeToMinutes(m.startTime);
-                const memberEndMins = timeToMinutes(m.endTime);
+                    // Time overlap logic
+                    if (!m.startTime || !m.endTime) return false;
+                    const memberStartMins = timeToMinutes(m.startTime);
+                    const memberEndMins = timeToMinutes(m.endTime);
 
-                // Overlap condition: max(start1, start2) < min(end1, end2)
-                return Math.max(filterStartMins, memberStartMins) < Math.min(filterEndMins, memberEndMins);
-            });
+                    // Overlap condition: max(start1, start2) < min(end1, end2)
+                    return Math.max(filterStartMins, memberStartMins) < Math.min(filterEndMins, memberEndMins);
+                });
 
-            data.push({
-                seatNumber: i,
-                seatName,
-                occupant,
-                status: occupant ? occupant.status : 'Vacant'
-            });
-        }
+                seats.push({
+                    seatNumber: i,
+                    seatIdStr,
+                    occupant,
+                    status: occupant ? occupant.status : 'Vacant'
+                });
+            }
+            return { ...room, seats };
+        });
 
-        return data;
-    }, [settings?.totalSeats, members, startTime, endTime]);
+    }, [settings?.rooms, members, startTime, endTime]);
 
-    if (settings?.totalSeats === undefined || settings?.totalSeats === 0) {
+    if (!settings?.rooms || settings.rooms.length === 0) {
         return (
             <div className="max-w-md mx-auto mt-20 p-8 stat-card text-center">
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
                     <Armchair className="w-8 h-8 text-primary" />
                 </div>
-                <h2 className="text-2xl font-bold font-display mb-2">Initialize Seats</h2>
-                <p className="text-muted-foreground mb-6">Please enter the total number of seats available in your library to start managing them.</p>
+                <h2 className="text-2xl font-bold font-display mb-2">Initialize Rooms & Seats</h2>
 
-                <div className="space-y-4">
-                    <div className="space-y-2 text-left">
-                        <Label>Total Seats</Label>
-                        <Input
-                            type="number"
-                            placeholder="e.g. 50"
-                            value={initializeInput}
-                            onChange={e => setInitializeInput(e.target.value)}
-                        />
-                    </div>
-                    <Button className="w-full" onClick={handleInitialize}>Setup Seats</Button>
-                </div>
+                {setupStep === 1 ? (
+                    <>
+                        <p className="text-muted-foreground mb-6">Please enter the total number of rooms available in your library.</p>
+                        <div className="space-y-4">
+                            <div className="space-y-2 text-left">
+                                <Label>Total Rooms</Label>
+                                <Input
+                                    type="number"
+                                    placeholder="e.g. 3"
+                                    value={numRoomsInput}
+                                    onChange={e => setNumRoomsInput(e.target.value)}
+                                />
+                            </div>
+                            <Button className="w-full" onClick={handleSetupNumRooms}>Next Step</Button>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <p className="text-muted-foreground mb-6">Set the seat capacity for each room.</p>
+                        <div className="space-y-4 text-left max-h-[40vh] overflow-y-auto pr-2 pb-2">
+                            {Object.keys(roomCapacities).map((roomId, index) => (
+                                <div key={roomId} className="space-y-2">
+                                    <Label>Room {index + 1} Capacity</Label>
+                                    <Input
+                                        type="number"
+                                        value={roomCapacities[roomId]}
+                                        onChange={e => {
+                                            const val = parseInt(e.target.value) || 0;
+                                            setRoomCapacities(prev => ({ ...prev, [roomId]: val }));
+                                        }}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                        <div className="flex gap-3 mt-6">
+                            <Button variant="outline" className="w-full" onClick={() => setSetupStep(1)}>Back</Button>
+                            <Button className="w-full" onClick={handleFinalizeSetup}>Finalize Setup</Button>
+                        </div>
+                    </>
+                )}
             </div>
         );
     }
 
-    const selectedSeatData = seatData.find(s => s.seatNumber === selectedSeat);
+    let selectedSeatData: { seatIdStr: string, seatNumber: number, occupant?: Member, status: string } | undefined;
+    if (selectedSeat) {
+        for (const room of roomsData) {
+            const found = room.seats.find(s => s.seatIdStr === selectedSeat);
+            if (found) {
+                selectedSeatData = found;
+                break;
+            }
+        }
+    }
 
     return (
         <div className="space-y-6 max-w-7xl mx-auto pb-10">
@@ -127,51 +189,67 @@ const Seats = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-3">
-                {seatData.map((seat, i) => {
-                    let containerClass = "bg-muted/30 hover:bg-muted/50 border-border text-foreground";
-                    let occupantClass = "text-muted-foreground font-medium";
-                    let overlayClass = "bg-foreground/5";
+            <div className="flex justify-end">
+                <Button variant="outline" size="sm" onClick={resetSetup} className="text-muted-foreground">
+                    <Trash2 className="w-4 h-4 mr-2" /> Reset Room Layout
+                </Button>
+            </div>
 
-                    if (seat.status === 'Active') {
-                        containerClass = "bg-success border-success text-success-foreground shadow-[0_4px_14px_rgba(var(--success),0.4)] hover:shadow-[0_6px_20px_rgba(var(--success),0.5)]";
-                        occupantClass = "text-success-foreground/90 font-bold";
-                        overlayClass = "bg-white/20";
-                    } else if (seat.status === 'Expiring Soon') {
-                        containerClass = "bg-warning border-warning text-warning-foreground shadow-[0_4px_14px_rgba(var(--warning),0.4)] hover:shadow-[0_6px_20px_rgba(var(--warning),0.5)]";
-                        occupantClass = "text-warning-foreground/90 font-bold";
-                        overlayClass = "bg-black/10";
-                    } else if (seat.status === 'Expired') {
-                        containerClass = "bg-destructive border-destructive text-destructive-foreground shadow-[0_4px_14px_rgba(var(--destructive),0.4)] hover:shadow-[0_6px_20px_rgba(var(--destructive),0.5)]";
-                        occupantClass = "text-destructive-foreground/90 font-bold";
-                        overlayClass = "bg-black/10";
-                    }
+            <div className="space-y-8">
+                {roomsData.map((room) => (
+                    <div key={room.id} className="stat-card p-5">
+                        <h2 className="text-xl font-bold font-display mb-4 border-b pb-2 flex items-center justify-between">
+                            {room.name}
+                            <span className="text-sm font-normal text-muted-foreground bg-secondary/50 px-3 py-1 rounded-full">{room.capacity} Seats Total</span>
+                        </h2>
+                        <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-3">
+                            {room.seats.map((seat, i) => {
+                                let containerClass = "bg-muted/30 hover:bg-muted/50 border-border text-foreground";
+                                let occupantClass = "text-muted-foreground font-medium";
+                                let overlayClass = "bg-foreground/5";
 
-                    return (
-                        <motion.div
-                            key={seat.seatNumber}
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: Math.min(i * 0.01, 0.5) }}
-                            onClick={() => setSelectedSeat(seat.seatNumber)}
-                            className={`border rounded-xl p-3 flex flex-col items-center justify-center aspect-square cursor-pointer transition-all duration-300 relative overflow-hidden ${containerClass}`}
-                        >
-                            <div className={`absolute inset-0 opacity-0 hover:opacity-100 transition-opacity ${overlayClass}`} />
+                                if (seat.status === 'Active') {
+                                    containerClass = "bg-success border-success text-success-foreground shadow-[0_4px_14px_rgba(var(--success),0.4)] hover:shadow-[0_6px_20px_rgba(var(--success),0.5)]";
+                                    occupantClass = "text-success-foreground/90 font-bold";
+                                    overlayClass = "bg-white/20";
+                                } else if (seat.status === 'Expiring Soon') {
+                                    containerClass = "bg-warning border-warning text-warning-foreground shadow-[0_4px_14px_rgba(var(--warning),0.4)] hover:shadow-[0_6px_20px_rgba(var(--warning),0.5)]";
+                                    occupantClass = "text-warning-foreground/90 font-bold";
+                                    overlayClass = "bg-black/10";
+                                } else if (seat.status === 'Expired') {
+                                    containerClass = "bg-destructive border-destructive text-destructive-foreground shadow-[0_4px_14px_rgba(var(--destructive),0.4)] hover:shadow-[0_6px_20px_rgba(var(--destructive),0.5)]";
+                                    occupantClass = "text-destructive-foreground/90 font-bold";
+                                    overlayClass = "bg-black/10";
+                                }
 
-                            <span className="text-2xl font-bold font-display z-10 drop-shadow-sm">{seat.seatNumber}</span>
-                            <span className={`text-[10px] mt-1 uppercase tracking-wider z-10 drop-shadow-sm ${occupantClass}`}>
-                                {seat.status === 'Vacant' ? 'Vacant' : seat.occupant?.fullName.split(' ')[0]}
-                            </span>
-                        </motion.div>
-                    );
-                })}
+                                return (
+                                    <motion.div
+                                        key={seat.seatIdStr}
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        transition={{ delay: Math.min(i * 0.01, 0.5) }}
+                                        onClick={() => setSelectedSeat(seat.seatIdStr)}
+                                        className={`border rounded-xl p-3 flex flex-col items-center justify-center aspect-square cursor-pointer transition-all duration-300 relative overflow-hidden ${containerClass}`}
+                                    >
+                                        <div className={`absolute inset-0 opacity-0 hover:opacity-100 transition-opacity ${overlayClass}`} />
+
+                                        <span className="text-2xl font-bold font-display z-10 drop-shadow-sm">{seat.seatNumber}</span>
+                                        <span className={`text-[10px] mt-1 uppercase tracking-wider z-10 drop-shadow-sm ${occupantClass}`}>
+                                            {seat.status === 'Vacant' ? 'Vacant' : seat.occupant?.fullName.split(' ')[0]}
+                                        </span>
+                                    </motion.div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ))}
             </div>
 
             <Dialog open={selectedSeat !== null} onOpenChange={() => setSelectedSeat(null)}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-xl font-display">
-                            <Armchair className="w-5 h-5 text-primary" /> Seat {selectedSeat}
+                            <Armchair className="w-5 h-5 text-primary" /> {selectedSeat}
                         </DialogTitle>
                     </DialogHeader>
 
