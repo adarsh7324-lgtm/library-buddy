@@ -49,12 +49,12 @@ const AddMember = () => {
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
           if (ctx) {
-            const MAX_WIDTH = 300;
+            const MAX_WIDTH = 150;
             const scale = MAX_WIDTH / img.width;
             canvas.width = MAX_WIDTH;
             canvas.height = img.height * scale;
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            setPhotoBase64(canvas.toDataURL('image/jpeg', 0.6));
+            setPhotoBase64(canvas.toDataURL('image/webp', 0.5));
           }
         };
         img.src = reader.result as string;
@@ -98,14 +98,14 @@ const AddMember = () => {
   const capturePhoto = () => {
     if (videoRef.current) {
       const canvas = document.createElement('canvas');
-      const MAX_WIDTH = 300;
+      const MAX_WIDTH = 150;
       const scale = MAX_WIDTH / videoRef.current.videoWidth;
       canvas.width = MAX_WIDTH;
       canvas.height = videoRef.current.videoHeight * scale;
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-        setPhotoBase64(canvas.toDataURL('image/jpeg', 0.8));
+        setPhotoBase64(canvas.toDataURL('image/webp', 0.5));
       }
       stopCamera();
     }
