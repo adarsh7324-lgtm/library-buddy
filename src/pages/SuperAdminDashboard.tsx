@@ -11,10 +11,10 @@ export default function SuperAdminDashboard() {
 
     useEffect(() => {
         const fetchLibraries = async () => {
-            const { data } = await supabase.from('authorized_users').select('email, user_id');
+            const { data } = await supabase.from('authorized_users').select('email, user_id, role');
             if (data) {
-                // Filter out the superadmin themselves and only show registered ones
-                const validLibs = data.filter(u => u.email !== 'adarsh7324@gmail.com');
+                // Filter out all superadmins and only show registered normal admins/libraries
+                const validLibs = data.filter(u => u.role !== 'superadmin');
                 setClientLibraries(validLibs.map(user => ({
                     id: user.user_id || user.email, // fallback, but UI will warn if null
                     email: user.email,

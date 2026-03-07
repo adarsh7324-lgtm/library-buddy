@@ -106,8 +106,26 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        // Super Admin Check
-        if (session.user.email === 'adarsh7324@gmail.com') {
+        // Fetch user from authorized_users table
+        const { data: authorizedUser, error } = await supabase
+          .from('authorized_users')
+          .select('*')
+          .eq('email', session.user.email)
+          .single();
+
+        if (error || !authorizedUser) {
+          // User is not authorized
+          toast.error("Access Denied: Your email is not authorized.");
+          await supabase.auth.signOut();
+          setActiveLibraryId(null);
+          setIsSuperAdmin(false);
+          sessionStorage.removeItem('librarypro_library_id');
+          sessionStorage.removeItem('librarypro_is_superadmin');
+          return;
+        }
+
+        // Super Admin Check using the 'role' column
+        if (authorizedUser.role === 'superadmin') {
           setIsSuperAdmin(true);
           sessionStorage.setItem('librarypro_is_superadmin', 'true');
 
@@ -123,36 +141,20 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // Normal User Check against authorized_users table
-        const { data: authorizedUser, error } = await supabase
-          .from('authorized_users')
-          .select('*')
-          .eq('email', session.user.email)
-          .single();
+        // Normal User Path
+        // User is authorized, set their own unique ID for multi-tenancy
+        const userId = session.user.id;
 
-        if (error || !authorizedUser) {
-          // User is not authorized
-          toast.error("Access Denied: Your email is not authorized.");
-          await supabase.auth.signOut();
-          setActiveLibraryId(null);
-          setIsSuperAdmin(false);
-          sessionStorage.removeItem('librarypro_library_id');
-          sessionStorage.removeItem('librarypro_is_superadmin');
-        } else {
-          // User is authorized, set their own unique ID for multi-tenancy
-          const userId = session.user.id;
-
-          // Automatically link their library UUID if missing
-          if (authorizedUser.user_id !== userId) {
-            await supabase.from('authorized_users').update({ user_id: userId }).eq('email', session.user.email);
-          }
-
-          setActiveLibraryId(userId);
-          setIsSuperAdmin(false);
-          sessionStorage.setItem('librarypro_library_id', userId);
-          sessionStorage.removeItem('librarypro_is_superadmin');
-          toast.success(`Welcome back, ${session.user.email}!`);
+        // Automatically link their library UUID if missing
+        if (authorizedUser.user_id !== userId) {
+          await supabase.from('authorized_users').update({ user_id: userId }).eq('email', session.user.email);
         }
+
+        setActiveLibraryId(userId);
+        setIsSuperAdmin(false);
+        sessionStorage.setItem('librarypro_library_id', userId);
+        sessionStorage.removeItem('librarypro_is_superadmin');
+        toast.success(`Welcome back, ${session.user.email}!`);
       } catch (err) {
         console.error('Authorization check failed:', err);
         toast.error("Failed to verify authorization.");
