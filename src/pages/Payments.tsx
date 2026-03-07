@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { Plus, IndianRupee, Calendar, Download, Check, ChevronsUpDown, Trash2 } from 'lucide-react';
+import { Plus, IndianRupee, Calendar, Download, Check, ChevronsUpDown, Trash2, Search } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -32,6 +32,7 @@ const Payments = () => {
   const [viewDeleted, setViewDeleted] = useState(false);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearPassword, setClearPassword] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const handleSave = async () => {
     if (!form.memberId || !form.amount || !form.months) {
@@ -123,7 +124,13 @@ const Payments = () => {
 
   const sortedPayments = [...payments].sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
   const sortedDeletedPayments = [...deletedPayments].sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
-  const displayedPayments = viewDeleted ? sortedDeletedPayments : sortedPayments;
+  const displayedPayments = (viewDeleted ? sortedDeletedPayments : sortedPayments).filter((payment) => {
+    if (!searchTerm) return true;
+    const member = members.find(m => m.id === payment.memberId);
+    if (!member) return false;
+    const searchLower = searchTerm.toLowerCase();
+    return member.fullName.toLowerCase().includes(searchLower) || member.phone.includes(searchTerm);
+  });
 
   const handleDeletePayment = async (id: string) => {
     if (confirm('Are you sure you want to delete this payment?')) {
@@ -229,6 +236,19 @@ const Payments = () => {
           ) : (
             <Button size="sm" onClick={() => setClearDialogOpen(true)} variant="destructive" className="gap-1.5 shrink-0 text-xs h-8"><Trash2 className="w-3.5 h-3.5" /> Clear All</Button>
           )}
+        </div>
+      </div>
+
+      {/* Search Bar */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search payments by member name or phone..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="pl-10 bg-background/50 focus:bg-background transition-colors"
+          />
         </div>
       </div>
 
