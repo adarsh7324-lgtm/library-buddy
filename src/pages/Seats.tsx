@@ -21,6 +21,7 @@ const Seats = () => {
     const [numRoomsInput, setNumRoomsInput] = useState('');
     const [setupStep, setSetupStep] = useState<1 | 2>(1);
     const [roomCapacities, setRoomCapacities] = useState<{ [key: string]: number }>({});
+    const [isEditing, setIsEditing] = useState(false);
 
     // Time filters state
     const now = new Date();
@@ -36,11 +37,34 @@ const Seats = () => {
         if (!isNaN(total) && total > 0) {
             const initialCapacities: { [key: string]: number } = {};
             for (let i = 1; i <= total; i++) {
-                initialCapacities[`room-${i}`] = 20; // Default capacity
+                const existingRoom = settings?.rooms?.find((r: any) => r.id === `room-${i}`);
+                if (existingRoom) {
+                    initialCapacities[`room-${i}`] = existingRoom.capacity;
+                } else {
+                    initialCapacities[`room-${i}`] = 20; // Default capacity
+                }
             }
             setRoomCapacities(initialCapacities);
             setSetupStep(2);
         }
+    };
+
+    const handleEditSetup = () => {
+        if (settings?.rooms) {
+            setNumRoomsInput(settings.rooms.length.toString());
+            const initialCapacities: { [key: string]: number } = {};
+            settings.rooms.forEach((room: any) => {
+                initialCapacities[room.id] = room.capacity;
+            });
+            setRoomCapacities(initialCapacities);
+            setSetupStep(1);
+        }
+        setIsEditing(true);
+    };
+
+    const handleCancelEdit = () => {
+        setIsEditing(false);
+        setSetupStep(1);
     };
 
     const handleFinalizeSetup = async () => {
@@ -50,13 +74,8 @@ const Seats = () => {
             capacity: cap
         }));
         await updateSettings({ rooms: roomsToSave });
+        setIsEditing(false);
     };
-
-    const resetSetup = async () => {
-        await updateSettings({ rooms: [] });
-        setSetupStep(1);
-        setNumRoomsInput('');
-    }
 
     // Derive seat statuses based on selected time per room
     const roomsData = useMemo(() => {
@@ -97,13 +116,18 @@ const Seats = () => {
 
     }, [settings?.rooms, members, startTime, endTime]);
 
-    if (!settings?.rooms || settings.rooms.length === 0) {
+    const seatOccupants = useMemo(() => {
+        if (!selectedSeat) return [];
+        return members.filter(m => m.seatNumber === selectedSeat);
+    }, [selectedSeat, members]);
+
+    if (!settings?.rooms || settings.rooms.length === 0 || isEditing) {
         return (
             <div className="max-w-md mx-auto mt-20 p-8 stat-card text-center">
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
                     <Armchair className="w-8 h-8 text-primary" />
                 </div>
-                <h2 className="text-2xl font-bold font-display mb-2">Initialize Rooms & Seats</h2>
+                <h2 className="text-2xl font-bold font-display mb-2">{isEditing ? 'Edit Rooms & Seats' : 'Initialize Rooms & Seats'}</h2>
 
                 {setupStep === 1 ? (
                     <>
@@ -118,7 +142,12 @@ const Seats = () => {
                                     onChange={e => setNumRoomsInput(e.target.value)}
                                 />
                             </div>
-                            <Button className="w-full" onClick={handleSetupNumRooms}>Next Step</Button>
+                            <div className="flex gap-3">
+                                {isEditing && (
+                                    <Button variant="outline" className="w-full" onClick={handleCancelEdit}>Cancel</Button>
+                                )}
+                                <Button className="w-full" onClick={handleSetupNumRooms}>Next Step</Button>
+                            </div>
                         </div>
                     </>
                 ) : (
@@ -141,7 +170,7 @@ const Seats = () => {
                         </div>
                         <div className="flex gap-3 mt-6">
                             <Button variant="outline" className="w-full" onClick={() => setSetupStep(1)}>Back</Button>
-                            <Button className="w-full" onClick={handleFinalizeSetup}>Finalize Setup</Button>
+                            <Button className="w-full" onClick={handleFinalizeSetup}>{isEditing ? 'Save Changes' : 'Finalize Setup'}</Button>
                         </div>
                     </>
                 )}
@@ -149,12 +178,16 @@ const Seats = () => {
         );
     }
 
-    let selectedSeatData: { seatIdStr: string, seatNumber: number, occupant?: Member, status: string } | undefined;
+    let selectedSeatData: { seatIdStr: string, seatNumber: number, status: string } | undefined;
     if (selectedSeat) {
         for (const room of roomsData) {
             const found = room.seats.find(s => s.seatIdStr === selectedSeat);
             if (found) {
-                selectedSeatData = found;
+                selectedSeatData = {
+                    seatIdStr: found.seatIdStr,
+                    seatNumber: found.seatNumber,
+                    status: found.status
+                };
                 break;
             }
         }
@@ -190,8 +223,8 @@ const Seats = () => {
             </div>
 
             <div className="flex justify-end">
-                <Button variant="outline" size="sm" onClick={resetSetup} className="text-muted-foreground">
-                    <Trash2 className="w-4 h-4 mr-2" /> Reset Room Layout
+                <Button variant="outline" size="sm" onClick={handleEditSetup} className="text-muted-foreground">
+                    <Armchair className="w-4 h-4 mr-2" /> Edit Room Layout
                 </Button>
             </div>
 
@@ -251,65 +284,55 @@ const Seats = () => {
                         <DialogTitle className="flex items-center gap-2 text-xl font-display">
                             <Armchair className="w-5 h-5 text-primary" /> {selectedSeat}
                         </DialogTitle>
+                        <DialogDescription>
+                            All students assigned to this seat
+                        </DialogDescription>
                     </DialogHeader>
 
-                    {selectedSeatData?.occupant ? (
-                        <div className="mt-4 space-y-6">
-                            <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/40 border border-border/50">
-                                <div className="w-16 h-16 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0 border-2 border-background shadow-sm">
-                                    {selectedSeatData.occupant.photoUrl ? (
-                                        <img src={selectedSeatData.occupant.photoUrl} alt="Profile" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <User className="w-8 h-8 text-muted-foreground/50" />
-                                    )}
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-lg leading-tight">{selectedSeatData.occupant.fullName}</h3>
-                                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
-                                        <Phone className="w-3.5 h-3.5" /> {selectedSeatData.occupant.countryCode} {selectedSeatData.occupant.phone}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="p-3 rounded-lg border border-border/50 bg-card">
-                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold uppercase mb-1">
-                                        <Clock className="w-3.5 h-3.5" /> Assigned Time
-                                    </div>
-                                    <p className="font-medium text-sm">
-                                        {selectedSeatData.occupant.startTime || '12:00'} - {selectedSeatData.occupant.endTime || '12:00'}
-                                    </p>
-                                </div>
-                                <div className="p-3 rounded-lg border border-border/50 bg-card">
-                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold uppercase mb-1">
-                                        <CalendarDays className="w-3.5 h-3.5" /> Valid Till
-                                    </div>
-                                    <p className="font-medium text-sm">
-                                        {format(parseISO(selectedSeatData.occupant.expiryDate), 'MMM d, yyyy')}
-                                    </p>
-                                </div>
-                                <div className="p-3 rounded-lg border border-border/50 bg-card col-span-2">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold uppercase">
-                                            <Hash className="w-3.5 h-3.5" /> Status
+                    {seatOccupants.length > 0 ? (
+                        <div className="mt-4 space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+                            {seatOccupants.map(occupant => (
+                                <div key={occupant.id} className="flex flex-col gap-3 p-4 border rounded-xl bg-card">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0 border border-background shadow-sm">
+                                            {occupant.photoUrl ? (
+                                                <img src={occupant.photoUrl} alt="Profile" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <User className="w-6 h-6 text-muted-foreground/50" />
+                                            )}
                                         </div>
-                                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${selectedSeatData.occupant.status === 'Active' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'
-                                            }`}>
-                                            {selectedSeatData.occupant.status}
-                                        </span>
+                                        <div className="flex-1">
+                                            <h3 className="font-bold text-base leading-tight">{occupant.fullName}</h3>
+                                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
+                                                <Phone className="w-3 h-3" /> {occupant.countryCode || '+91'} {occupant.phone}
+                                            </div>
+                                        </div>
+                                        <div className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${occupant.status === 'Active' ? 'bg-success/20 text-success' : occupant.status === 'Expiring Soon' ? 'bg-warning/20 text-warning' : 'bg-destructive/20 text-destructive'}`}>
+                                            {occupant.status}
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 text-xs border-t pt-3">
+                                        <div className="flex items-center gap-1.5">
+                                            <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                                            <span className="font-medium">{occupant.startTime || '12:00'} - {occupant.endTime || '12:00'}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 justify-end">
+                                            <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
+                                            <span className="font-medium">{occupant.expiryDate ? format(parseISO(occupant.expiryDate), 'MMM d, yyyy') : 'N/A'}</span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            ))}
                         </div>
                     ) : (
                         <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
                             <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
-                                <MapPin className="w-6 h-6" />
+                                <Armchair className="w-6 h-6" />
                             </div>
                             <div>
-                                <h3 className="font-medium text-lg">Vacant Seat</h3>
+                                <h3 className="font-medium text-lg">Unassigned Seat</h3>
                                 <p className="text-sm text-muted-foreground mt-1">
-                                    This seat is currently available for the selected time range ({startTime} - {endTime}).
+                                    No students are currently assigned to this seat across any time slots.
                                 </p>
                             </div>
                         </div>
