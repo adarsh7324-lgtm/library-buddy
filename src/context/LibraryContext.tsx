@@ -23,6 +23,7 @@ export interface Member {
   registrationFee?: number;
   customDays?: number;
   photoUrl?: string;
+  targetExam?: string;
 }
 
 export interface Room {
@@ -47,6 +48,8 @@ export interface Payment {
   note: string;
   paymentMode?: 'Cash' | 'Online';
   createdAt?: string;
+  dueAmount?: number;
+  advancedAmount?: number;
 }
 
 export interface DeletedPayment extends Payment {
@@ -68,6 +71,7 @@ interface LibraryContextType {
   deleteMember: (id: string) => Promise<void>;
   upgradeMember: (id: string, additionalMonths: number, additionalDays?: number) => Promise<void>;
   addPayment: (payment: Omit<Payment, 'id' | 'libraryId'>) => Promise<void>;
+  updatePayment: (id: string, updates: Partial<Payment>) => Promise<void>;
   deletePayment: (id: string) => Promise<void>;
   clearDeletedPayments: (password: string) => Promise<void>;
   updateSettings: (settings: Partial<LibrarySettings>) => Promise<void>;
@@ -491,6 +495,25 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     }
   }, [activeLibraryId]);
 
+  const updatePayment = useCallback(async (id: string, updates: Partial<Payment>) => {
+    if (!activeLibraryId) throw new Error('No active library session');
+    try {
+      const { error } = await supabase
+        .from('payments')
+        .update(updates)
+        .eq('id', id)
+        .eq('libraryId', activeLibraryId);
+
+      if (error) throw error;
+
+      setPayments(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+    } catch (error) {
+      console.error('Error updating payment:', error);
+      toast.error('Failed to update payment');
+      throw error;
+    }
+  }, [activeLibraryId]);
+
   const updateSettings = useCallback(async (newSettings: Partial<LibrarySettings>) => {
     if (!activeLibraryId) throw new Error('No active library session');
     try {
@@ -507,7 +530,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   }, [activeLibraryId]);
 
   return (
-    <LibraryContext.Provider value={{ members, payments, deletedPayments, isAuthenticated, isSuperAdmin, activeLibraryId, login, loginWithGoogle, logout, addMember, updateMember, deleteMember, upgradeMember, addPayment, deletePayment, clearDeletedPayments, updateSettings, fetchData, switchLibrary, loading, isAuthChecking, settings }}>
+    <LibraryContext.Provider value={{
+      members, payments, deletedPayments, isAuthenticated, isSuperAdmin, activeLibraryId, login, loginWithGoogle, logout, addMember, updateMember, deleteMember,
+      upgradeMember,
+      addPayment,
+      updatePayment,
+      deletePayment, clearDeletedPayments, updateSettings, fetchData, switchLibrary, loading, isAuthChecking, settings
+    }}>
       {children}
     </LibraryContext.Provider>
   );

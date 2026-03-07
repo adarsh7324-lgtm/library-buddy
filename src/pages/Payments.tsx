@@ -17,10 +17,18 @@ import autoTable from 'jspdf-autotable';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const Payments = () => {
-  const { members, payments, deletedPayments, addPayment, upgradeMember, deletePayment, clearDeletedPayments } = useLibrary();
+  const { members, payments, deletedPayments, addPayment, updatePayment, upgradeMember, deletePayment, clearDeletedPayments } = useLibrary();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [openMemberSelect, setOpenMemberSelect] = useState(false);
-  const [form, setForm] = useState<{ memberId: string; amount: string; months: string; customDays: string; note: string; paymentMode: 'Cash' | 'Online' }>({ memberId: '', amount: '', months: '', customDays: '', note: '', paymentMode: 'Cash' });
+  const [form, setForm] = useState<{
+    memberId: string; amount: string; months: string; customDays: string; note: string; paymentMode: 'Cash' | 'Online';
+    amountType: 'Regular' | 'Due' | 'Advanced';
+    typeAmount: string;
+    clearOutstanding: boolean;
+  }>({
+    memberId: '', amount: '', months: '', customDays: '', note: '', paymentMode: 'Cash',
+    amountType: 'Regular', typeAmount: '', clearOutstanding: false
+  });
   const [viewDeleted, setViewDeleted] = useState(false);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearPassword, setClearPassword] = useState('');
@@ -44,7 +52,20 @@ const Payments = () => {
         paymentMode: form.paymentMode,
         date: paymentDate,
         note: form.note,
+        dueAmount: form.amountType === 'Due' ? Number(form.typeAmount) : 0,
+        advancedAmount: form.amountType === 'Advanced' ? Number(form.typeAmount) : 0,
       };
+
+      if (form.clearOutstanding) {
+        // Find existing outstanding balances to offset
+        const pastPayments = payments.filter(p => p.memberId === form.memberId && ((p.dueAmount || 0) > 0 || (p.advancedAmount || 0) > 0));
+
+        // Zero them out retrospectively in the database
+        await Promise.all(pastPayments.map(p =>
+          updatePayment(p.id, { dueAmount: 0, advancedAmount: 0 })
+        ));
+      }
+
       if (form.months === 'custom') {
         paymentData.customDays = Number(form.customDays);
       }
@@ -69,6 +90,16 @@ const Payments = () => {
           message += `⏳ Membership Extended: ${form.months} month(s)\n`;
         }
 
+        if (paymentData.dueAmount > 0) {
+          message += `⏳ Due Amount Tracked: ₹${paymentData.dueAmount}\n`;
+        }
+        if (paymentData.advancedAmount > 0) {
+          message += `💰 Advanced Deposit Tracked: ₹${paymentData.advancedAmount}\n`;
+        }
+        if (form.clearOutstanding) {
+          message += `✨ Previous Outstanding Balances Cleared\n`;
+        }
+
         message += `💵 Payment Mode: ${form.paymentMode}\n`;
         message += `📅 Date: ${format(new Date(paymentDate), 'dd MMM yyyy')}\n`;
 
@@ -84,7 +115,7 @@ const Payments = () => {
       }
 
       setDialogOpen(false);
-      setForm({ memberId: '', amount: '', months: '', customDays: '', note: '', paymentMode: 'Cash' });
+      setForm({ memberId: '', amount: '', months: '', customDays: '', note: '', paymentMode: 'Cash', amountType: 'Regular', typeAmount: '', clearOutstanding: false });
     } catch (error) {
       toast.error('Failed to register payment');
     }
@@ -169,6 +200,16 @@ const Payments = () => {
 
   const dailyStats = calculateDailyCollections();
 
+  const calculateOutstanding = (memberId: string) => {
+    if (!memberId) return { due: 0, adv: 0 };
+    const memberPayments = payments.filter(p => p.memberId === memberId);
+    const due = memberPayments.reduce((sum, p) => sum + (p.dueAmount || 0), 0);
+    const adv = memberPayments.reduce((sum, p) => sum + (p.advancedAmount || 0), 0);
+    return { due, adv };
+  };
+
+  const outstanding = calculateOutstanding(form.memberId);
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -229,8 +270,15 @@ const Payments = () => {
           <tbody>
             {displayedPayments.map((payment, i) => {
               const member = members.find(m => m.id === payment.memberId);
+              const isDue = (payment.dueAmount || 0) > 0;
+              const isAdv = (payment.advancedAmount || 0) > 0;
+
+              let rowClass = "border-b border-border/30 hover:bg-muted/30 transition-colors";
+              if (isDue) rowClass += " bg-orange-500/10 hover:bg-orange-500/20";
+              else if (isAdv) rowClass += " bg-yellow-500/10 hover:bg-yellow-500/20";
+
               return (
-                <motion.tr key={payment.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }} className="border-b border-border/30 hover:bg-muted/30 transition-colors">
+                <motion.tr key={payment.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }} className={rowClass}>
                   <td className="py-3 px-4 text-muted-foreground">{format(parseISO(payment.date), 'MMM d, yyyy')}</td>
                   <td className="py-3 px-4 font-medium text-foreground">{member?.fullName ?? 'Unknown'}</td>
                   <td className="py-3 px-4 text-muted-foreground">{payment.customDays ? `${payment.customDays} day(s)` : `${payment.months} month(s)`}</td>
@@ -239,7 +287,11 @@ const Payments = () => {
                       {payment.paymentMode || 'Cash'}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-foreground font-medium">₹{payment.amount.toLocaleString()}</td>
+                  <td className="py-3 px-4 text-foreground font-medium">
+                    ₹{payment.amount.toLocaleString()}
+                    {isDue && <span className="block text-xs text-orange-600 dark:text-orange-400 font-bold">Due: ₹{payment.dueAmount}</span>}
+                    {isAdv && <span className="block text-xs text-yellow-600 dark:text-yellow-400 font-bold">Adv: ₹{payment.advancedAmount}</span>}
+                  </td>
                   <td className="py-3 px-4 text-muted-foreground">{payment.note || '—'}</td>
                   {!viewDeleted && (
                     <td className="py-3 px-4 text-right">
@@ -260,10 +312,21 @@ const Payments = () => {
       <div className="md:hidden space-y-3">
         {displayedPayments.map((payment, i) => {
           const member = members.find(m => m.id === payment.memberId);
+          const isDue = (payment.dueAmount || 0) > 0;
+          const isAdv = (payment.advancedAmount || 0) > 0;
+
+          let cardClass = "stat-card";
+          if (isDue) cardClass += " border-l-4 border-orange-500 bg-orange-500/5";
+          else if (isAdv) cardClass += " border-l-4 border-yellow-500 bg-yellow-500/5";
+
           return (
-            <motion.div key={payment.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="stat-card">
+            <motion.div key={payment.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className={cardClass}>
               <div className="flex items-start justify-between mb-2">
-                <p className="font-medium text-foreground">{member?.fullName ?? 'Unknown'}</p>
+                <div>
+                  <p className="font-medium text-foreground">{member?.fullName ?? 'Unknown'}</p>
+                  {isDue && <span className="text-xs text-orange-600 dark:text-orange-400 font-bold">Due: ₹{payment.dueAmount}</span>}
+                  {isAdv && <span className="text-xs text-yellow-600 dark:text-yellow-400 font-bold">Adv: ₹{payment.advancedAmount}</span>}
+                </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-bold text-foreground">₹{payment.amount.toLocaleString()}</span>
                   {!viewDeleted && (
@@ -338,6 +401,25 @@ const Payments = () => {
                 </PopoverContent>
               </Popover>
             </div>
+            {form.memberId && (outstanding.due > 0 || outstanding.adv > 0) && (
+              <div className="bg-muted p-3 rounded-md border border-border space-y-2">
+                <p className="text-sm font-semibold mb-1">Outstanding Balances</p>
+                {outstanding.due > 0 && <p className="text-xs text-orange-600 dark:text-orange-400 font-bold">Total Due: ₹{outstanding.due}</p>}
+                {outstanding.adv > 0 && <p className="text-xs text-yellow-600 dark:text-yellow-400 font-bold">Total Advanced: ₹{outstanding.adv}</p>}
+                <div className="flex items-center space-x-2 mt-2 pt-2 border-t border-border/50">
+                  <input
+                    type="checkbox"
+                    id="clearBalances"
+                    checked={form.clearOutstanding}
+                    onChange={(e) => setForm(f => ({ ...f, clearOutstanding: e.target.checked }))}
+                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <label htmlFor="clearBalances" className="text-xs font-medium leading-none cursor-pointer">
+                    Mark Cleared
+                  </label>
+                </div>
+              </div>
+            )}
             <div>
               <Label>Duration to Add *</Label>
               <Select value={form.months} onValueChange={v => setForm(f => ({ ...f, months: v, customDays: '' }))}>
@@ -368,6 +450,27 @@ const Payments = () => {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Amount Tracking</Label>
+                <Select value={form.amountType} onValueChange={(v: 'Regular' | 'Due' | 'Advanced') => setForm(f => ({ ...f, amountType: v, typeAmount: '' }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Regular">Regular</SelectItem>
+                    <SelectItem value="Due">Has Due Amount</SelectItem>
+                    <SelectItem value="Advanced">Advanced Deposit</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {form.amountType !== 'Regular' && (
+                <div>
+                  <Label>{form.amountType} Amount (₹) *</Label>
+                  <Input type="number" min="1" value={form.typeAmount} onChange={e => setForm(f => ({ ...f, typeAmount: e.target.value }))} placeholder={`e.g. 100`} />
+                </div>
+              )}
+            </div>
+
             <div>
               <Label>Note (optional)</Label>
               <Input value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} placeholder="e.g. Renewal" />

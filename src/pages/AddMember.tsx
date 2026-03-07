@@ -23,7 +23,8 @@ const AddMember = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     fullName: '', phone: '', countryCode: '+91', address: '', idProofNumber: '',
-    months: '', customDays: '', feesPaid: '', registrationFee: '', paymentMode: 'Cash' as 'Cash' | 'Online', startDate: format(new Date(), 'yyyy-MM-dd'), seatNumber: '', startTime: '09:00', endTime: '18:00', lockerFacility: false
+    months: '', customDays: '', feesPaid: '', registrationFee: '', paymentMode: 'Cash' as 'Cash' | 'Online', startDate: format(new Date(), 'yyyy-MM-dd'), seatNumber: '', startTime: '09:00', endTime: '18:00', lockerFacility: false,
+    targetExam: ''
   });
 
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
@@ -184,6 +185,7 @@ const AddMember = () => {
         startTime: form.startTime,
         endTime: form.endTime,
         lockerFacility: form.lockerFacility,
+        targetExam: form.targetExam,
       };
 
       if (form.registrationFee) {
@@ -325,6 +327,16 @@ const AddMember = () => {
                   onCheckedChange={(checked) => setForm(f => ({ ...f, lockerFacility: checked }))}
                 />
                 <span className="text-sm font-medium text-muted-foreground">{form.lockerFacility ? 'Opted In' : 'Not Required'}</span>
+              </div>
+              <div className="md:col-span-2">
+                <Label htmlFor="targetExam">Target Exam (Optional)</Label>
+                <Input
+                  id="targetExam"
+                  placeholder="e.g. UPSC, JEE, NEET, SSC"
+                  value={form.targetExam}
+                  onChange={(e) => setForm({ ...form, targetExam: e.target.value })}
+                  className="bg-background/50 focus:bg-background transition-colors border-border/50"
+                />
               </div>
             </div>
             <div>

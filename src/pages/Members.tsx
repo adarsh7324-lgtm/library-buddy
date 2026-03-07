@@ -236,6 +236,10 @@ const Members = () => {
                         <p className="font-medium text-sm">{member.idProofNumber || 'N/A'}</p>
                       </div>
                       <div className="col-span-1">
+                        <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-0.5">Target Exam</p>
+                        <p className="font-medium text-sm">{member.targetExam || 'N/A'}</p>
+                      </div>
+                      <div className="col-span-1">
                         <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-0.5">Duration</p>
                         <p className="font-medium text-sm">{member.customDays ? `${member.customDays} Day(s)` : `${member.months} Month(s)`}</p>
                       </div>
