@@ -45,6 +45,8 @@ export interface Payment {
   customDays?: number;
   date: string;
   note: string;
+  paymentMode?: 'Cash' | 'Online';
+  createdAt?: string;
 }
 
 export interface DeletedPayment extends Payment {

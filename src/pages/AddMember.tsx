@@ -23,7 +23,7 @@ const AddMember = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     fullName: '', phone: '', countryCode: '+91', address: '', idProofNumber: '',
-    months: '', customDays: '', feesPaid: '', registrationFee: '', startDate: format(new Date(), 'yyyy-MM-dd'), seatNumber: '', startTime: '09:00', endTime: '18:00', lockerFacility: false
+    months: '', customDays: '', feesPaid: '', registrationFee: '', paymentMode: 'Cash' as 'Cash' | 'Online', startDate: format(new Date(), 'yyyy-MM-dd'), seatNumber: '', startTime: '09:00', endTime: '18:00', lockerFacility: false
   });
 
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
@@ -201,6 +201,7 @@ const AddMember = () => {
           memberId: newMemberId,
           amount: Number(form.feesPaid) + (Number(form.registrationFee) || 0),
           months: form.months === 'custom' ? 0 : Number(form.months),
+          paymentMode: form.paymentMode,
           date: form.startDate,
           note: form.registrationFee ? 'Initial Registration & Monthly Fees' : 'Initial Registration Fee',
         };
@@ -212,7 +213,7 @@ const AddMember = () => {
       toast.success('Member added successfully!');
 
       const durationText = form.months === 'custom' ? `${form.customDays} day(s)` : `${form.months} month(s)`;
-      const message = `*Congratulations ${form.fullName}!* 🎉\nYou are now a member of the library.\n\n*Membership Details:*\n📱 Phone: ${form.countryCode} ${form.phone}\n⏳ Duration: ${durationText}\n💰 Fees Paid: ₹${form.feesPaid || 0}${form.registrationFee ? `\n💳 Registration Fee: ₹${form.registrationFee}` : ''}\n📅 Join Date: ${format(new Date(form.startDate), 'dd MMM yyyy')}\n⌛ Expiry Date: ${format(new Date(expiryDate), 'dd MMM yyyy')}\n\nWelcome aboard! 📚`;
+      const message = `*Congratulations ${form.fullName}!* 🎉\nYou are now a member of the library.\n\n*Membership Details:*\n📱 Phone: ${form.countryCode} ${form.phone}\n⏳ Duration: ${durationText}\n💰 Fees Paid: ₹${form.feesPaid || 0} (${form.paymentMode})${form.registrationFee ? `\n💳 Registration Fee: ₹${form.registrationFee}` : ''}\n📅 Join Date: ${format(new Date(form.startDate), 'dd MMM yyyy')}\n⌛ Expiry Date: ${format(new Date(expiryDate), 'dd MMM yyyy')}\n\nWelcome aboard! 📚`;
 
       const encodedMessage = encodeURIComponent(message);
       const waNumber = `${form.countryCode.replace('+', '')}${form.phone}`;
@@ -372,6 +373,16 @@ const AddMember = () => {
             <div>
               <Label>Registration Fee (₹, optional)</Label>
               <Input type="number" value={form.registrationFee} onChange={e => setForm(f => ({ ...f, registrationFee: e.target.value }))} placeholder="Reg. Amount" />
+            </div>
+            <div>
+              <Label>Payment Mode</Label>
+              <Select value={form.paymentMode} onValueChange={(v: 'Cash' | 'Online') => setForm(f => ({ ...f, paymentMode: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Cash">Cash</SelectItem>
+                  <SelectItem value="Online">Online</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label>Start Date *</Label>

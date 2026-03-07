@@ -14,12 +14,13 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const Payments = () => {
   const { members, payments, deletedPayments, addPayment, upgradeMember, deletePayment, clearDeletedPayments } = useLibrary();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [openMemberSelect, setOpenMemberSelect] = useState(false);
-  const [form, setForm] = useState({ memberId: '', amount: '', months: '', customDays: '', note: '' });
+  const [form, setForm] = useState<{ memberId: string; amount: string; months: string; customDays: string; note: string; paymentMode: 'Cash' | 'Online' }>({ memberId: '', amount: '', months: '', customDays: '', note: '', paymentMode: 'Cash' });
   const [viewDeleted, setViewDeleted] = useState(false);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearPassword, setClearPassword] = useState('');
@@ -40,6 +41,7 @@ const Payments = () => {
         memberId: form.memberId,
         amount: Number(form.amount),
         months: form.months === 'custom' ? 0 : Number(form.months),
+        paymentMode: form.paymentMode,
         date: paymentDate,
         note: form.note,
       };
@@ -67,6 +69,7 @@ const Payments = () => {
           message += `⏳ Membership Extended: ${form.months} month(s)\n`;
         }
 
+        message += `💵 Payment Mode: ${form.paymentMode}\n`;
         message += `📅 Date: ${format(new Date(paymentDate), 'dd MMM yyyy')}\n`;
 
         if (form.note) {
@@ -81,7 +84,7 @@ const Payments = () => {
       }
 
       setDialogOpen(false);
-      setForm({ memberId: '', amount: '', months: '', customDays: '', note: '' });
+      setForm({ memberId: '', amount: '', months: '', customDays: '', note: '', paymentMode: 'Cash' });
     } catch (error) {
       toast.error('Failed to register payment');
     }
@@ -117,13 +120,14 @@ const Payments = () => {
         format(parseISO(p.date), 'MMM d, yyyy'),
         member?.fullName ?? 'Unknown',
         p.customDays ? `${p.customDays} day(s)` : `${p.months} month(s)`,
+        p.paymentMode || 'Cash',
         `Rs. ${p.amount}`,
         p.note || '—'
       ];
     });
 
     autoTable(doc, {
-      head: [['Date', 'Member Name', 'Duration', 'Amount', 'Note']],
+      head: [['Date', 'Member Name', 'Duration', 'Mode', 'Amount', 'Note']],
       body: tableData,
       startY: 20,
       theme: 'grid',
@@ -133,6 +137,37 @@ const Payments = () => {
 
     doc.save('library_payments.pdf');
   };
+
+  const calculateDailyCollections = () => {
+    const now = new Date();
+    // Start of the business day is 2 AM
+    const startOfBusinessDay = new Date(now);
+    if (now.getHours() < 2) {
+      // If it's before 2 AM, the business day started at 2 AM yesterday
+      startOfBusinessDay.setDate(startOfBusinessDay.getDate() - 1);
+    }
+    startOfBusinessDay.setHours(2, 0, 0, 0);
+
+    let cash = 0;
+    let online = 0;
+
+    payments.forEach(payment => {
+      if (!payment.createdAt) return;
+      const paymentTime = new Date(payment.createdAt);
+      if (paymentTime >= startOfBusinessDay) {
+        if (payment.paymentMode === 'Online') {
+          online += payment.amount;
+        } else {
+          // Default to Cash
+          cash += payment.amount;
+        }
+      }
+    });
+
+    return { cash, online, total: cash + online };
+  };
+
+  const dailyStats = calculateDailyCollections();
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -156,6 +191,27 @@ const Payments = () => {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <Card className="bg-primary/5 border-primary/20">
+          <CardHeader className="py-4">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Today's Cash Collection</CardTitle>
+            <div className="text-2xl font-bold text-foreground">₹{dailyStats.cash.toLocaleString()}</div>
+          </CardHeader>
+        </Card>
+        <Card className="bg-primary/5 border-primary/20">
+          <CardHeader className="py-4">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Today's Online Collection</CardTitle>
+            <div className="text-2xl font-bold text-foreground">₹{dailyStats.online.toLocaleString()}</div>
+          </CardHeader>
+        </Card>
+        <Card className="bg-primary/10 border-primary/30">
+          <CardHeader className="py-4">
+            <CardTitle className="text-sm font-medium text-primary">Today's Total Revenue</CardTitle>
+            <div className="text-2xl font-bold text-primary">₹{dailyStats.total.toLocaleString()}</div>
+          </CardHeader>
+        </Card>
+      </div>
+
       {/* Payment History */}
       <div className="hidden md:block stat-card overflow-x-auto">
         <table className="w-full text-sm">
@@ -164,6 +220,7 @@ const Payments = () => {
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Date</th>
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Member</th>
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Months</th>
+              <th className="text-left py-3 px-4 font-medium text-muted-foreground">Mode</th>
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Amount</th>
               <th className="text-left py-3 px-4 font-medium text-muted-foreground">Note</th>
               {!viewDeleted && <th className="text-right py-3 px-4 font-medium text-muted-foreground">Actions</th>}
@@ -177,6 +234,11 @@ const Payments = () => {
                   <td className="py-3 px-4 text-muted-foreground">{format(parseISO(payment.date), 'MMM d, yyyy')}</td>
                   <td className="py-3 px-4 font-medium text-foreground">{member?.fullName ?? 'Unknown'}</td>
                   <td className="py-3 px-4 text-muted-foreground">{payment.customDays ? `${payment.customDays} day(s)` : `${payment.months} month(s)`}</td>
+                  <td className="py-3 px-4 text-muted-foreground">
+                    <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", payment.paymentMode === 'Online' ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground")}>
+                      {payment.paymentMode || 'Cash'}
+                    </span>
+                  </td>
                   <td className="py-3 px-4 text-foreground font-medium">₹{payment.amount.toLocaleString()}</td>
                   <td className="py-3 px-4 text-muted-foreground">{payment.note || '—'}</td>
                   {!viewDeleted && (
@@ -214,6 +276,9 @@ const Payments = () => {
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{format(parseISO(payment.date), 'MMM d, yyyy')}</span>
                 <span>{payment.customDays ? `${payment.customDays} day(s)` : `${payment.months} month(s)`}</span>
+                <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-medium", payment.paymentMode === 'Online' ? "bg-accent/40 text-foreground" : "bg-muted text-muted-foreground")}>
+                  {payment.paymentMode || 'Cash'}
+                </span>
               </div>
               {payment.note && <p className="text-xs text-muted-foreground mt-1">{payment.note}</p>}
             </motion.div>
@@ -292,6 +357,16 @@ const Payments = () => {
             <div>
               <Label>Amount Paid (₹) *</Label>
               <Input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="e.g. 500" />
+            </div>
+            <div>
+              <Label>Payment Mode *</Label>
+              <Select value={form.paymentMode} onValueChange={(v: 'Cash' | 'Online') => setForm(f => ({ ...f, paymentMode: v }))}>
+                <SelectTrigger><SelectValue placeholder="Select mode" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Cash">Cash</SelectItem>
+                  <SelectItem value="Online">Online</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label>Note (optional)</Label>
