@@ -20,6 +20,7 @@ export interface Member {
   startTime?: string;
   endTime?: string;
   lockerFacility?: boolean;
+  registrationFee?: number;
   customDays?: number;
   photoUrl?: string;
 }
