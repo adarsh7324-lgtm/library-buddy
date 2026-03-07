@@ -7,14 +7,19 @@ import { Button } from '@/components/ui/button';
 
 export default function SuperAdminDashboard() {
     const { switchLibrary, logout } = useLibrary();
-    const [clientLibraries, setClientLibraries] = useState<{ id: string, email: string }[]>([]);
+    const [clientLibraries, setClientLibraries] = useState<{ id: string, email: string, hasUserId: boolean }[]>([]);
 
     useEffect(() => {
         const fetchLibraries = async () => {
-            const { data } = await supabase.from('authorized_users').select('email');
+            const { data } = await supabase.from('authorized_users').select('email, user_id');
             if (data) {
-                // For now, use the email as the ID in the UI to identify them
-                setClientLibraries(data.map(user => ({ id: user.email, email: user.email })));
+                // Filter out the superadmin themselves and only show registered ones
+                const validLibs = data.filter(u => u.email !== 'adarsh7324@gmail.com');
+                setClientLibraries(validLibs.map(user => ({
+                    id: user.user_id || user.email, // fallback, but UI will warn if null
+                    email: user.email,
+                    hasUserId: !!user.user_id
+                })));
             }
         };
         fetchLibraries();
@@ -44,30 +49,36 @@ export default function SuperAdminDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {clientLibraries.map((lib, index) => (
                         <motion.div
-                            key={lib.id}
+                            key={lib.email}
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.4, delay: index * 0.1 }}
-                            className="group cursor-pointer"
-                            onClick={() => switchLibrary(lib.id)}
+                            className={`group ${lib.hasUserId ? 'cursor-pointer' : 'opacity-60 cursor-not-allowed'}`}
+                            onClick={() => {
+                                if (lib.hasUserId) {
+                                    switchLibrary(lib.id);
+                                }
+                            }}
                         >
-                            <div className="bg-card rounded-2xl border border-border p-6 shadow-sm transition-all duration-300 hover:shadow-md hover:border-primary/30 h-full flex flex-col items-start gap-4">
-                                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                            <div className={`bg-card rounded-2xl border border-border p-6 shadow-sm transition-all duration-300 h-full flex flex-col items-start gap-4 ${lib.hasUserId ? 'hover:shadow-md hover:border-primary/30' : ''}`}>
+                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${lib.hasUserId ? 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
                                     <Library className="w-5 h-5" />
                                 </div>
 
                                 <div className="flex-1 w-full">
                                     <h3 className="font-semibold text-lg text-foreground mb-1 truncate">
-                                        {lib.id}
-                                    </h3>
-                                    <p className="text-sm text-muted-foreground truncate w-full" title={lib.email}>
                                         {lib.email}
-                                    </p>
+                                    </h3>
+                                    {!lib.hasUserId && (
+                                        <p className="text-xs text-destructive font-medium mt-1">
+                                            Library UUID missing. Please run SQL backfill.
+                                        </p>
+                                    )}
                                 </div>
 
-                                <div className="mt-auto pt-4 w-full flex items-center justify-between text-sm font-medium text-primary opacity-80 group-hover:opacity-100 transition-opacity">
-                                    <span>Manage Library</span>
-                                    <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
+                                <div className={`mt-auto pt-4 w-full flex items-center justify-between text-sm font-medium transition-opacity ${lib.hasUserId ? 'text-primary opacity-80 group-hover:opacity-100' : 'text-muted-foreground'}`}>
+                                    <span>{lib.hasUserId ? 'Manage Library' : 'Unlinked Library'}</span>
+                                    {lib.hasUserId && <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />}
                                 </div>
                             </div>
                         </motion.div>

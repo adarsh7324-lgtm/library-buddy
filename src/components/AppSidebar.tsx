@@ -5,7 +5,7 @@ import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter, useSidebar,
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, Users, UserPlus, IndianRupee, LogOut, BookOpen, Bell } from 'lucide-react';
+import { LayoutDashboard, Users, UserPlus, IndianRupee, LogOut, BookOpen, Bell, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const navItems = [
@@ -20,10 +20,11 @@ const navItems = [
 export function AppSidebar() {
   const { state, setOpenMobile, setOpen, isMobile } = useSidebar();
   const collapsed = state === 'collapsed' && !isMobile;
-  const { logout } = useLibrary();
+  const { logout, isSuperAdmin, switchLibrary } = useLibrary();
   const navigate = useNavigate();
 
   const handleLogout = () => { logout(); navigate('/login'); };
+  const handleReturnToPortal = () => { switchLibrary('superadmin'); };
 
   return (
     <Sidebar collapsible="icon">
@@ -65,12 +66,18 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-3">
+      <SidebarFooter className="p-3 space-y-2">
+        {isSuperAdmin && (
+          <Button variant="outline" size={collapsed ? 'icon' : 'default'} onClick={handleReturnToPortal} className="w-full justify-start text-primary border-primary/20 hover:bg-primary/10">
+            <ShieldCheck className="h-4 w-4" />
+            {!collapsed && <span className="ml-2 font-medium">Return to Portal</span>}
+          </Button>
+        )}
         <Button variant="ghost" size={collapsed ? 'icon' : 'default'} onClick={handleLogout} className="w-full justify-start text-sidebar-foreground hover:text-destructive hover:bg-destructive/10">
           <LogOut className="h-4 w-4" />
           {!collapsed && <span className="ml-2">Logout</span>}
         </Button>
       </SidebarFooter>
-    </Sidebar>
+    </Sidebar >
   );
 }

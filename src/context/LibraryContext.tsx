@@ -55,6 +55,7 @@ interface LibraryContextType {
   payments: Payment[];
   deletedPayments: DeletedPayment[];
   isAuthenticated: boolean;
+  isSuperAdmin: boolean;
   activeLibraryId: string | null;
   login: (email: string, password: string) => boolean;
   loginWithGoogle: () => Promise<void>;
@@ -84,6 +85,9 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [activeLibraryId, setActiveLibraryId] = useState<string | null>(() => {
     return sessionStorage.getItem('librarypro_library_id');
   });
+  const [isSuperAdmin, setIsSuperAdmin] = useState<boolean>(() => {
+    return sessionStorage.getItem('librarypro_is_superadmin') === 'true';
+  });
   const isAuthenticated = !!activeLibraryId;
   const [loading, setLoading] = useState(true);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
@@ -102,7 +106,24 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        // Check if user exists in authorized_users table
+        // Super Admin Check
+        if (session.user.email === 'adarsh7324@gmail.com') {
+          setIsSuperAdmin(true);
+          sessionStorage.setItem('librarypro_is_superadmin', 'true');
+
+          // If they don't have a specific library selected, default to 'superadmin' string
+          const currentLib = sessionStorage.getItem('librarypro_library_id');
+          if (!currentLib || currentLib === 'superadmin') {
+            setActiveLibraryId('superadmin');
+            sessionStorage.setItem('librarypro_library_id', 'superadmin');
+          } else {
+            setActiveLibraryId(currentLib);
+          }
+          toast.success(`Welcome back, Super Admin!`);
+          return;
+        }
+
+        // Normal User Check against authorized_users table
         const { data: authorizedUser, error } = await supabase
           .from('authorized_users')
           .select('*')
@@ -114,12 +135,22 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           toast.error("Access Denied: Your email is not authorized.");
           await supabase.auth.signOut();
           setActiveLibraryId(null);
+          setIsSuperAdmin(false);
           sessionStorage.removeItem('librarypro_library_id');
+          sessionStorage.removeItem('librarypro_is_superadmin');
         } else {
           // User is authorized, set their own unique ID for multi-tenancy
           const userId = session.user.id;
+
+          // Automatically link their library UUID if missing
+          if (authorizedUser.user_id !== userId) {
+            await supabase.from('authorized_users').update({ user_id: userId }).eq('email', session.user.email);
+          }
+
           setActiveLibraryId(userId);
+          setIsSuperAdmin(false);
           sessionStorage.setItem('librarypro_library_id', userId);
+          sessionStorage.removeItem('librarypro_is_superadmin');
           toast.success(`Welcome back, ${session.user.email}!`);
         }
       } catch (err) {
@@ -146,7 +177,9 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         }
       } else {
         setActiveLibraryId(null);
+        setIsSuperAdmin(false);
         sessionStorage.removeItem('librarypro_library_id');
+        sessionStorage.removeItem('librarypro_is_superadmin');
         setIsAuthChecking(false);
       }
     });
@@ -240,7 +273,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   }, [activeLibraryId]);
 
   useEffect(() => {
-    if (!activeLibraryId) {
+    if (!activeLibraryId || activeLibraryId === 'superadmin') {
       setMembers([]);
       setPayments([]);
       setDeletedPayments([]);
@@ -311,7 +344,9 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     setActiveLibraryId(null);
+    setIsSuperAdmin(false);
     sessionStorage.removeItem('librarypro_library_id');
+    sessionStorage.removeItem('librarypro_is_superadmin');
     await supabase.auth.signOut();
   }, []);
 
@@ -467,7 +502,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   }, [activeLibraryId]);
 
   return (
-    <LibraryContext.Provider value={{ members, payments, deletedPayments, isAuthenticated, activeLibraryId, login, loginWithGoogle, logout, addMember, updateMember, deleteMember, upgradeMember, addPayment, deletePayment, clearDeletedPayments, updateSettings, fetchData, switchLibrary, loading, isAuthChecking, settings }}>
+    <LibraryContext.Provider value={{ members, payments, deletedPayments, isAuthenticated, isSuperAdmin, activeLibraryId, login, loginWithGoogle, logout, addMember, updateMember, deleteMember, upgradeMember, addPayment, deletePayment, clearDeletedPayments, updateSettings, fetchData, switchLibrary, loading, isAuthChecking, settings }}>
       {children}
     </LibraryContext.Provider>
   );

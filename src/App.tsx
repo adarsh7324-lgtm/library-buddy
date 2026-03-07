@@ -19,7 +19,7 @@ import { ThemeProvider } from "./components/theme-provider";
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, activeLibraryId, isAuthChecking } = useLibrary();
+  const { isAuthenticated, isSuperAdmin, activeLibraryId, isAuthChecking } = useLibrary();
 
   if (isAuthChecking) {
     return (
@@ -34,9 +34,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!isAuthenticated && !isSuperAdmin) return <Navigate to="/login" replace />;
 
-  if (activeLibraryId === 'superadmin') {
+  if (isSuperAdmin && activeLibraryId === 'superadmin') {
     return <SuperAdminDashboard />;
   }
 
