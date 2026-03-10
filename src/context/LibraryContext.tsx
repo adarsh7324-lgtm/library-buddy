@@ -3,6 +3,8 @@ import { addMonths, addDays, format, differenceInDays } from 'date-fns';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 
+import { v4 as uuidv4 } from 'uuid';
+
 export interface Member {
   id: string;
   libraryId: string;
@@ -367,10 +369,44 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const addMember = useCallback(async (member: Omit<Member, 'id' | 'libraryId'>, photoBase64?: string) => {
     if (!activeLibraryId) throw new Error('Cannot add member: No active library session');
     try {
+      let finalPhotoUrl = null;
+
+      if (photoBase64) {
+        // Convert base64 to blob
+        const base64Data = photoBase64.split(',')[1];
+        const byteCharacters = atob(base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'image/webp' });
+
+        const fileName = `${activeLibraryId}/${uuidv4()}.webp`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('member-photos')
+          .upload(fileName, blob, {
+            contentType: 'image/webp',
+            upsert: false
+          });
+
+        if (uploadError) {
+          console.error("Photo upload failed:", uploadError);
+          toast.error("Failed to upload member photo, but will continue inserting member.");
+        } else {
+          const { data: publicUrlData } = supabase.storage
+            .from('member-photos')
+            .getPublicUrl(fileName);
+            
+          finalPhotoUrl = publicUrlData.publicUrl;
+        }
+      }
+
       const { data, error } = await supabase.from('members').insert([{
         ...member,
         libraryId: activeLibraryId,
-        photoUrl: photoBase64 || null
+        photoUrl: finalPhotoUrl
       }]).select().single();
 
       if (error) throw error;
