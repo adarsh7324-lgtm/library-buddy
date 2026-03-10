@@ -34,6 +34,10 @@ const Payments = () => {
   const [clearPassword, setClearPassword] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
+  const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
+  const [pdfStartDate, setPdfStartDate] = useState('');
+  const [pdfEndDate, setPdfEndDate] = useState('');
+
   const handleSave = async () => {
     if (!form.memberId || !form.amount || !form.months) {
       toast.error('Please fill all required fields');
@@ -149,10 +153,46 @@ const Payments = () => {
   };
 
   const exportToPDF = () => {
-    const doc = new jsPDF();
-    doc.text(viewDeleted ? 'Deleted Payments History' : 'Payments History', 14, 15);
+    let paymentsToExport = displayedPayments;
 
-    const tableData = displayedPayments.map(p => {
+    if (pdfStartDate && pdfEndDate) {
+      const start = new Date(pdfStartDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(pdfEndDate);
+      end.setHours(23, 59, 59, 999);
+
+      paymentsToExport = paymentsToExport.filter(p => {
+        const pDate = new Date(p.date);
+        return pDate >= start && pDate <= end;
+      });
+    } else if (pdfStartDate) {
+      const start = new Date(pdfStartDate);
+      start.setHours(0, 0, 0, 0);
+      paymentsToExport = paymentsToExport.filter(p => new Date(p.date) >= start);
+    } else if (pdfEndDate) {
+      const end = new Date(pdfEndDate);
+      end.setHours(23, 59, 59, 999);
+      paymentsToExport = paymentsToExport.filter(p => new Date(p.date) <= end);
+    }
+
+    if (paymentsToExport.length === 0) {
+      toast.error('No payments found in the selected date range.');
+      return;
+    }
+
+    const doc = new jsPDF();
+    let title = viewDeleted ? 'Deleted Payments History' : 'Payments History';
+    if (pdfStartDate && pdfEndDate) {
+      title += ` (${format(new Date(pdfStartDate), 'MMM d, yyyy')} to ${format(new Date(pdfEndDate), 'MMM d, yyyy')})`;
+    } else if (pdfStartDate) {
+      title += ` (From ${format(new Date(pdfStartDate), 'MMM d, yyyy')})`;
+    } else if (pdfEndDate) {
+      title += ` (Until ${format(new Date(pdfEndDate), 'MMM d, yyyy')})`;
+    }
+
+    doc.text(title, 14, 15);
+
+    const tableData = paymentsToExport.map(p => {
       const member = members.find(m => m.id === p.memberId);
       return [
         format(parseISO(p.date), 'MMM d, yyyy'),
@@ -174,6 +214,7 @@ const Payments = () => {
     });
 
     doc.save('library_payments.pdf');
+    setPdfDialogOpen(false);
   };
 
   const calculateDailyCollections = () => {
@@ -228,7 +269,7 @@ const Payments = () => {
           <Button size="sm" onClick={() => setViewDeleted(!viewDeleted)} variant="outline" className="gap-1.5 shrink-0 text-xs h-8">
             {viewDeleted ? 'View Active' : 'View Deleted'}
           </Button>
-          <Button size="sm" onClick={exportToPDF} variant="outline" className="gap-1.5 shrink-0 text-xs h-8">
+          <Button size="sm" onClick={() => setPdfDialogOpen(true)} variant="outline" className="gap-1.5 shrink-0 text-xs h-8">
             <Download className="w-3.5 h-3.5" /> Download PDF
           </Button>
           {!viewDeleted ? (
@@ -517,6 +558,30 @@ const Payments = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => { setClearDialogOpen(false); setClearPassword(''); }}>Cancel</Button>
             <Button variant="destructive" onClick={handleClearDeleted}>Clear</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* PDF Export Dialog */}
+      <Dialog open={pdfDialogOpen} onOpenChange={setPdfDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Download Payments PDF</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">Select a date range to filter the exported payments. Leave blank to export all displayed payments.</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Start Date</Label>
+                <Input type="date" value={pdfStartDate} onChange={e => setPdfStartDate(e.target.value)} />
+              </div>
+              <div>
+                <Label>End Date</Label>
+                <Input type="date" value={pdfEndDate} onChange={e => setPdfEndDate(e.target.value)} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPdfDialogOpen(false)}>Cancel</Button>
+            <Button onClick={exportToPDF} className="gap-2"><Download className="w-4 h-4" /> Export</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
