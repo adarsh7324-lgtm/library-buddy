@@ -15,7 +15,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 200 25% 10%;
 
-    --primary: 168 60% 32%;
+    --primary: 28 60% 45%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 40 30% 95%;
@@ -32,18 +32,18 @@
 
     --border: 40 15% 90%;
     --input: 40 15% 88%;
-    --ring: 168 60% 32%;
+    --ring: 28 60% 45%;
 
     --radius: 0.625rem;
 
     --sidebar-background: 200 25% 8%;
     --sidebar-foreground: 200 10% 80%;
-    --sidebar-primary: 168 60% 45%;
+    --sidebar-primary: 28 60% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 200 20% 14%;
     --sidebar-accent-foreground: 200 10% 90%;
     --sidebar-border: 200 20% 16%;
-    --sidebar-ring: 168 60% 45%;
+    --sidebar-ring: 28 60% 45%;
 
     --success: 152 60% 42%;
     --success-foreground: 0 0% 100%;
@@ -52,32 +52,34 @@
     --info: 210 80% 52%;
     --info-foreground: 0 0% 100%;
 
-    --chart-1: 168 60% 32%;
+    --chart-1: 28 60% 45%;
     --chart-2: 38 90% 55%;
     --chart-3: 210 80% 52%;
     --chart-4: 280 60% 55%;
     --chart-5: 0 72% 51%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(168, 60%, 32%), hsl(168, 70%, 22%));
+    --gradient-primary: linear-gradient(135deg, hsl(28, 60%, 45%), hsl(28, 70%, 35%));
     --gradient-accent: linear-gradient(135deg, hsl(38, 90%, 55%), hsl(28, 85%, 50%));
-    --gradient-hero: linear-gradient(135deg, hsl(200, 25%, 8%), hsl(168, 40%, 15%));
+    --gradient-hero: linear-gradient(135deg, hsl(200, 25%, 8%), hsl(28, 40%, 25%));
     --shadow-sm: 0 1px 2px hsl(200 25% 10% / 0.04);
     --shadow-md: 0 4px 12px hsl(200 25% 10% / 0.06);
     --shadow-lg: 0 8px 30px hsl(200 25% 10% / 0.08);
-    --shadow-primary: 0 4px 14px hsl(168 60% 32% / 0.25);
+    --shadow-primary: 0 4px 14px hsl(28 60% 45% / 0.25);
   }
 
-  .dark {
+  /* Force dark theme everywhere as requested for consistent UI */
+  :root, .dark {
     --background: 200 25% 7%;
     --foreground: 40 15% 92%;
 
-    --card: 200 22% 10%;
+    /* Updated card values for better glass contrast */
+    --card: 200 22% 5%;
     --card-foreground: 40 15% 92%;
 
-    --popover: 200 22% 10%;
+    --popover: 200 22% 5%;
     --popover-foreground: 40 15% 92%;
 
-    --primary: 168 55% 45%;
+    --primary: 28 60% 45%;
     --primary-foreground: 200 25% 5%;
 
     --secondary: 200 18% 15%;
@@ -92,18 +94,18 @@
     --destructive: 0 62% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 200 18% 16%;
+    --border: 0 0% 100%; /* base white border for opacity scaling */
     --input: 200 18% 18%;
-    --ring: 168 55% 45%;
+    --ring: 28 60% 45%;
 
     --sidebar-background: 200 28% 5%;
     --sidebar-foreground: 200 10% 80%;
-    --sidebar-primary: 168 55% 45%;
+    --sidebar-primary: 28 60% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 200 22% 12%;
     --sidebar-accent-foreground: 200 10% 90%;
-    --sidebar-border: 200 22% 12%;
-    --sidebar-ring: 168 55% 45%;
+    --sidebar-border: 0 0% 100%;
+    --sidebar-ring: 28 60% 45%;
 
     --success: 152 55% 40%;
     --success-foreground: 0 0% 100%;
@@ -112,30 +114,63 @@
     --info: 210 75% 50%;
     --info-foreground: 0 0% 100%;
 
-    --chart-1: 168 55% 45%;
+    --chart-1: 28 60% 45%;
     --chart-2: 38 80% 50%;
     --chart-3: 210 75% 50%;
     --chart-4: 280 55% 50%;
     --chart-5: 0 62% 45%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(168, 55%, 45%), hsl(168, 65%, 30%));
+    --gradient-primary: linear-gradient(135deg, hsl(28, 60%, 45%), hsl(28, 65%, 35%));
     --gradient-accent: linear-gradient(135deg, hsl(38, 80%, 50%), hsl(28, 75%, 45%));
-    --gradient-hero: linear-gradient(135deg, hsl(200, 28%, 5%), hsl(168, 35%, 12%));
+    --gradient-hero: linear-gradient(135deg, hsl(200, 28%, 5%), hsl(28, 35%, 15%));
     --shadow-sm: 0 1px 2px hsl(0 0% 0% / 0.2);
     --shadow-md: 0 4px 12px hsl(0 0% 0% / 0.3);
-    --shadow-lg: 0 8px 30px hsl(0 0% 0% / 0.4);
-    --shadow-primary: 0 4px 14px hsl(168 55% 45% / 0.2);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4); /* Enhanced for glass */
+    --shadow-primary: 0 4px 14px hsl(28 60% 45% / 0.2);
   }
 }
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-border/10; /* Make root borders super subtle */
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply text-foreground font-sans antialiased text-white min-h-screen relative overflow-x-hidden;
     font-family: 'Inter', 'DM Sans', system-ui, sans-serif;
+    
+    /* Background exactly like the login page */
+    background-color: #000;
+  }
+  
+  /* Apply pseudo element over body for scrollable background */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: -2;
+    background-image: url("https://images.unsplash.com/photo-1507842217343-583bb7270b66?q=80&w=2000&auto=format&fit=crop");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    filter: blur(8px);
+    transform: scale(1.05); /* Stops blur edge leak */
+  }
+
+  /* Overlay for readability */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: -1;
+    background: linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.6), rgba(0,0,0,0.8));
+    pointer-events: none;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -145,13 +180,26 @@
 
 @layer utilities {
   .glass {
-    @apply bg-card/80 backdrop-blur-md border border-border/50;
+    @apply bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)];
   }
+  
+  .glass-panel {
+    @apply bg-black/30 backdrop-blur-md border border-white/5;
+  }
+
   .stat-card {
-    @apply bg-card rounded-xl border border-border/60 p-5 transition-all duration-200 hover:shadow-md;
-    box-shadow: var(--shadow-sm);
+    @apply bg-black/40 backdrop-blur-xl border border-white/10 p-5 rounded-[1.5rem] transition-all duration-300 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] hover:shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] hover:border-white/20 hover:-translate-y-1 relative overflow-hidden;
   }
-  .stat-card:hover {
-    box-shadow: var(--shadow-md);
+  
+  /* Subtle light glare over cards to sell the glass effect */
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(to right, transparent, rgba(255,255,255,0.2), transparent);
+    z-index: 1;
   }
 }

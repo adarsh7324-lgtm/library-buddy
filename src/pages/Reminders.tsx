@@ -40,32 +40,32 @@ const Reminders = () => {
         <div className="space-y-6 max-w-7xl mx-auto">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-bold font-display text-foreground">Reminders</h1>
-                    <p className="text-muted-foreground mt-1">Manage soon-to-expire and expired memberships</p>
+                    <h1 className="text-2xl md:text-3xl font-bold font-display text-white">Reminders</h1>
+                    <p className="text-white/70 mt-1">Manage soon-to-expire and expired memberships</p>
                 </div>
             </div>
 
             <div className="relative max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50" />
                 <Input
                     placeholder="Search members by name or phone..."
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 bg-black/20 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-white/20 backdrop-blur-sm"
                 />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Expiring Soon Segment */}
                 <div className="space-y-4">
-                    <div className="flex items-center gap-2 pb-2 border-b border-border/60">
+                    <div className="flex items-center gap-2 pb-2 border-b border-white/10">
                         <Clock className="w-5 h-5 text-warning" />
-                        <h2 className="text-lg font-semibold text-foreground">Expiring Soon ({filteredExpiring.length})</h2>
+                        <h2 className="text-lg font-semibold text-white">Expiring Soon ({filteredExpiring.length})</h2>
                     </div>
 
                     <div className="space-y-3">
                         {filteredExpiring.length === 0 ? (
-                            <p className="text-sm text-muted-foreground p-4 text-center border border-dashed rounded-lg">No members expiring soon.</p>
+                            <p className="text-sm text-white/50 p-4 text-center border border-white/10 border-dashed rounded-lg bg-white/5 backdrop-blur-sm">No members expiring soon.</p>
                         ) : (
                             filteredExpiring.map((member, i) => (
                                 <motion.div
@@ -73,15 +73,15 @@ const Reminders = () => {
                                     initial={{ opacity: 0, y: 8 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: i * 0.05 }}
-                                    className="stat-card"
+                                    className="stat-card backdrop-blur-md bg-black/40 border-l-4 border-l-warning border-white/10 hover:bg-black/50 transition-colors"
                                 >
                                     <div className="flex items-start justify-between mb-2">
                                         <div>
-                                            <p className="font-medium text-foreground">{member.fullName}</p>
-                                            <p className="text-xs text-muted-foreground">{member.countryCode} {member.phone}</p>
+                                            <p className="font-medium text-white">{member.fullName}</p>
+                                            <p className="text-xs text-white/50">{member.countryCode} {member.phone}</p>
                                         </div>
                                     </div>
-                                    <p className="text-xs text-warning mb-3">Expires {format(parseISO(member.expiryDate), 'MMM d, yyyy')}</p>
+                                    <p className="text-xs text-warning mb-3 drop-shadow-sm font-medium">Expires {format(parseISO(member.expiryDate), 'MMM d, yyyy')}</p>
 
                                     <div className="flex justify-end">
                                         <a
@@ -89,7 +89,7 @@ const Reminders = () => {
                                             target="_blank"
                                             rel="noopener noreferrer"
                                         >
-                                            <Button size="sm" className="bg-success hover:bg-success/90 text-success-foreground gap-2 w-full sm:w-auto">
+                                            <Button size="sm" className="bg-success hover:bg-success/90 text-success-foreground gap-2 w-full sm:w-auto shadow-lg shadow-success/20">
                                                 <MessageSquare className="w-4 h-4" /> Send Reminder
                                             </Button>
                                         </a>
@@ -102,14 +102,14 @@ const Reminders = () => {
 
                 {/* Expired Segment */}
                 <div className="space-y-4">
-                    <div className="flex items-center gap-2 pb-2 border-b border-border/60">
+                    <div className="flex items-center gap-2 pb-2 border-b border-white/10">
                         <AlertTriangle className="w-5 h-5 text-destructive" />
-                        <h2 className="text-lg font-semibold text-foreground">Expired ({filteredExpired.length})</h2>
+                        <h2 className="text-lg font-semibold text-white">Expired ({filteredExpired.length})</h2>
                     </div>
 
                     <div className="space-y-3">
                         {filteredExpired.length === 0 ? (
-                            <p className="text-sm text-muted-foreground p-4 text-center border border-dashed rounded-lg">No expired members.</p>
+                            <p className="text-sm text-white/50 p-4 text-center border border-white/10 border-dashed rounded-lg bg-white/5 backdrop-blur-sm">No expired members.</p>
                         ) : (
                             filteredExpired.map((member, i) => (
                                 <motion.div
@@ -117,15 +117,15 @@ const Reminders = () => {
                                     initial={{ opacity: 0, y: 8 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: i * 0.05 }}
-                                    className="stat-card border-destructive/20"
+                                    className="stat-card backdrop-blur-md bg-black/40 border-l-4 border-l-destructive border-white/10 hover:bg-black/50 transition-colors"
                                 >
                                     <div className="flex items-start justify-between mb-2">
                                         <div>
-                                            <p className="font-medium text-foreground">{member.fullName}</p>
-                                            <p className="text-xs text-muted-foreground">{member.countryCode} {member.phone}</p>
+                                            <p className="font-medium text-white">{member.fullName}</p>
+                                            <p className="text-xs text-white/50">{member.countryCode} {member.phone}</p>
                                         </div>
                                     </div>
-                                    <p className="text-xs text-destructive mb-3">Expired {format(parseISO(member.expiryDate), 'MMM d, yyyy')}</p>
+                                    <p className="text-xs text-destructive mb-3 drop-shadow-sm font-medium">Expired {format(parseISO(member.expiryDate), 'MMM d, yyyy')}</p>
 
                                     <div className="flex justify-end">
                                         <a
@@ -133,7 +133,7 @@ const Reminders = () => {
                                             target="_blank"
                                             rel="noopener noreferrer"
                                         >
-                                            <Button size="sm" className="bg-success hover:bg-success/90 text-success-foreground gap-2 w-full sm:w-auto">
+                                            <Button size="sm" className="bg-success hover:bg-success/90 text-success-foreground gap-2 w-full sm:w-auto shadow-lg shadow-success/20">
                                                 <MessageSquare className="w-4 h-4" /> Send Renewal Link
                                             </Button>
                                         </a>

@@ -262,20 +262,20 @@ const Payments = () => {
     <div className="space-y-6 max-w-4xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold font-display text-foreground">Payments</h1>
-          <p className="text-muted-foreground mt-1">Register payments and view history</p>
+          <h1 className="text-2xl md:text-3xl font-bold font-display text-white">Payments</h1>
+          <p className="text-white/70 mt-1">Register payments and view history</p>
         </div>
         <div className="flex flex-wrap gap-2 justify-end sm:justify-start">
-          <Button size="sm" onClick={() => setViewDeleted(!viewDeleted)} variant="outline" className="gap-1.5 shrink-0 text-xs h-8">
+          <Button size="sm" onClick={() => setViewDeleted(!viewDeleted)} variant="outline" className="gap-1.5 shrink-0 text-xs h-8 bg-white/5 border-white/10 text-white hover:bg-white/10 backdrop-blur-sm">
             {viewDeleted ? 'View Active' : 'View Deleted'}
           </Button>
-          <Button size="sm" onClick={() => setPdfDialogOpen(true)} variant="outline" className="gap-1.5 shrink-0 text-xs h-8">
+          <Button size="sm" onClick={() => setPdfDialogOpen(true)} variant="outline" className="gap-1.5 shrink-0 text-xs h-8 bg-white/5 border-white/10 text-white hover:bg-white/10 backdrop-blur-sm">
             <Download className="w-3.5 h-3.5" /> Download PDF
           </Button>
           {!viewDeleted ? (
-            <Button size="sm" onClick={() => setDialogOpen(true)} className="gap-1.5 shrink-0 text-xs h-8"><Plus className="w-3.5 h-3.5" /> New Payment</Button>
+            <Button size="sm" onClick={() => setDialogOpen(true)} className="gap-1.5 shrink-0 text-xs h-8 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"><Plus className="w-3.5 h-3.5" /> New Payment</Button>
           ) : (
-            <Button size="sm" onClick={() => setClearDialogOpen(true)} variant="destructive" className="gap-1.5 shrink-0 text-xs h-8"><Trash2 className="w-3.5 h-3.5" /> Clear All</Button>
+            <Button size="sm" onClick={() => setClearDialogOpen(true)} variant="destructive" className="gap-1.5 shrink-0 text-xs h-8 bg-destructive/80 hover:bg-destructive shadow-lg shadow-destructive/20"><Trash2 className="w-3.5 h-3.5" /> Clear All</Button>
           )}
         </div>
       </div>
@@ -283,90 +283,87 @@ const Payments = () => {
       {/* Search Bar */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50" />
           <Input
             placeholder="Search payments by member name or phone..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            className="pl-10 bg-background/50 focus:bg-background transition-colors"
+            className="pl-10 bg-black/20 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-white/20 backdrop-blur-sm"
           />
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <Card className="bg-primary/5 border-primary/20">
-          <CardHeader className="py-4">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Today's Cash Collection</CardTitle>
-            <div className="text-2xl font-bold text-foreground">₹{dailyStats.cash.toLocaleString()}</div>
-          </CardHeader>
-        </Card>
-        <Card className="bg-primary/5 border-primary/20">
-          <CardHeader className="py-4">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Today's Online Collection</CardTitle>
-            <div className="text-2xl font-bold text-foreground">₹{dailyStats.online.toLocaleString()}</div>
-          </CardHeader>
-        </Card>
-        <Card className="bg-primary/10 border-primary/30">
-          <CardHeader className="py-4">
-            <CardTitle className="text-sm font-medium text-primary">Today's Total Revenue</CardTitle>
-            <div className="text-2xl font-bold text-primary">₹{dailyStats.total.toLocaleString()}</div>
-          </CardHeader>
-        </Card>
+        <div className="glass-panel p-5 rounded-2xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] bg-gradient-to-br from-white/5 to-transparent">
+            <h3 className="text-sm font-medium text-white/70 mb-1">Today's Cash Collection</h3>
+            <div className="text-2xl font-bold text-white">₹{dailyStats.cash.toLocaleString()}</div>
+        </div>
+        <div className="glass-panel p-5 rounded-2xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] bg-gradient-to-br from-white/5 to-transparent">
+            <h3 className="text-sm font-medium text-white/70 mb-1">Today's Online Collection</h3>
+            <div className="text-2xl font-bold text-white">₹{dailyStats.online.toLocaleString()}</div>
+        </div>
+        <div className="glass-panel p-5 rounded-2xl border border-primary/30 shadow-[0_8px_32px_0_rgba(var(--primary),0.15)] bg-primary/10 backdrop-blur-md relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent pointer-events-none" />
+            <h3 className="text-sm font-medium text-primary-foreground/90 relative z-10">Today's Total Revenue</h3>
+            <div className="text-2xl font-bold text-primary-foreground drop-shadow-sm relative z-10">₹{dailyStats.total.toLocaleString()}</div>
+        </div>
       </div>
 
       {/* Payment History */}
-      <div className="hidden md:block stat-card overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border/60">
-              <th className="text-left py-3 px-4 font-medium text-muted-foreground">Date</th>
-              <th className="text-left py-3 px-4 font-medium text-muted-foreground">Member</th>
-              <th className="text-left py-3 px-4 font-medium text-muted-foreground">Months</th>
-              <th className="text-left py-3 px-4 font-medium text-muted-foreground">Mode</th>
-              <th className="text-left py-3 px-4 font-medium text-muted-foreground">Amount</th>
-              <th className="text-left py-3 px-4 font-medium text-muted-foreground">Note</th>
-              {!viewDeleted && <th className="text-right py-3 px-4 font-medium text-muted-foreground">Actions</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {displayedPayments.map((payment, i) => {
-              const member = members.find(m => m.id === payment.memberId);
-              const isDue = (payment.dueAmount || 0) > 0;
-              const isAdv = (payment.advancedAmount || 0) > 0;
+      <div className="hidden md:block glass-panel rounded-2xl overflow-hidden shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-white/10 bg-black/20">
+                <th className="text-left py-4 px-5 font-medium text-white/70">Date</th>
+                <th className="text-left py-4 px-5 font-medium text-white/70">Member</th>
+                <th className="text-left py-4 px-5 font-medium text-white/70">Months</th>
+                <th className="text-left py-4 px-5 font-medium text-white/70">Mode</th>
+                <th className="text-left py-4 px-5 font-medium text-white/70">Amount</th>
+                <th className="text-left py-4 px-5 font-medium text-white/70">Note</th>
+                {!viewDeleted && <th className="text-right py-4 px-5 font-medium text-white/70">Actions</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {displayedPayments.map((payment, i) => {
+                const member = members.find(m => m.id === payment.memberId);
+                const isDue = (payment.dueAmount || 0) > 0;
+                const isAdv = (payment.advancedAmount || 0) > 0;
 
-              let rowClass = "border-b border-border/30 hover:bg-muted/30 transition-colors";
-              if (isDue) rowClass += " bg-orange-500/10 hover:bg-orange-500/20";
-              else if (isAdv) rowClass += " bg-yellow-500/10 hover:bg-yellow-500/20";
+                let rowClass = "border-b border-white/5 hover:bg-white/5 transition-colors";
+                if (isDue) rowClass += " bg-orange-500/10 hover:bg-orange-500/20";
+                else if (isAdv) rowClass += " bg-yellow-500/10 hover:bg-yellow-500/20";
 
-              return (
-                <motion.tr key={payment.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }} className={rowClass}>
-                  <td className="py-3 px-4 text-muted-foreground">{format(parseISO(payment.date), 'MMM d, yyyy')}</td>
-                  <td className="py-3 px-4 font-medium text-foreground">{member?.fullName ?? 'Unknown'}</td>
-                  <td className="py-3 px-4 text-muted-foreground">{payment.customDays ? `${payment.customDays} day(s)` : `${payment.months} month(s)`}</td>
-                  <td className="py-3 px-4 text-muted-foreground">
-                    <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", payment.paymentMode === 'Online' ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground")}>
-                      {payment.paymentMode || 'Cash'}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-foreground font-medium">
-                    ₹{payment.amount.toLocaleString()}
-                    {isDue && <span className="block text-xs text-orange-600 dark:text-orange-400 font-bold">Due: ₹{payment.dueAmount}</span>}
-                    {isAdv && <span className="block text-xs text-yellow-600 dark:text-yellow-400 font-bold">Adv: ₹{payment.advancedAmount}</span>}
-                  </td>
-                  <td className="py-3 px-4 text-muted-foreground">{payment.note || '—'}</td>
-                  {!viewDeleted && (
-                    <td className="py-3 px-4 text-right">
-                      <Button variant="ghost" size="icon" onClick={() => handleDeletePayment(payment.id)} className="text-destructive hover:bg-destructive/10">
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                return (
+                  <motion.tr key={payment.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }} className={rowClass}>
+                    <td className="py-3 px-5 text-white/70">{format(parseISO(payment.date), 'MMM d, yyyy')}</td>
+                    <td className="py-3 px-5 font-medium text-white">{member?.fullName ?? 'Unknown'}</td>
+                    <td className="py-3 px-5 text-white/70">{payment.customDays ? `${payment.customDays} day(s)` : `${payment.months} month(s)`}</td>
+                    <td className="py-3 px-5 text-white/70">
+                      <span className={cn("px-2.5 py-1 rounded-full text-xs font-medium border", payment.paymentMode === 'Online' ? "bg-primary/80 text-primary-foreground border-primary/80" : "bg-white/80 text-black border-white/80")}>
+                        {payment.paymentMode || 'Cash'}
+                      </span>
                     </td>
-                  )}
-                </motion.tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {displayedPayments.length === 0 && <p className="text-center text-muted-foreground py-8">No payments found</p>}
+                    <td className="py-3 px-5 text-white font-medium">
+                      ₹{payment.amount.toLocaleString()}
+                      {isDue && <span className="block text-xs text-orange-400 font-bold drop-shadow-sm mt-0.5">Due: ₹{payment.dueAmount}</span>}
+                      {isAdv && <span className="block text-xs text-yellow-400 font-bold drop-shadow-sm mt-0.5">Adv: ₹{payment.advancedAmount}</span>}
+                    </td>
+                    <td className="py-3 px-5 text-white/60">{payment.note || '—'}</td>
+                    {!viewDeleted && (
+                      <td className="py-3 px-5 text-right">
+                        <Button variant="ghost" size="icon" onClick={() => handleDeletePayment(payment.id)} className="text-destructive hover:bg-destructive/20 hover:text-destructive">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </td>
+                    )}
+                  </motion.tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {displayedPayments.length === 0 && <p className="text-center text-white/50 py-8">No payments found</p>}
       </div>
 
       {/* Mobile Cards */}
@@ -376,55 +373,55 @@ const Payments = () => {
           const isDue = (payment.dueAmount || 0) > 0;
           const isAdv = (payment.advancedAmount || 0) > 0;
 
-          let cardClass = "stat-card";
-          if (isDue) cardClass += " border-l-4 border-orange-500 bg-orange-500/5";
-          else if (isAdv) cardClass += " border-l-4 border-yellow-500 bg-yellow-500/5";
+          let cardClass = "stat-card backdrop-blur-md bg-black/40 border-white/10";
+          if (isDue) cardClass += " border-l-4 border-l-orange-500 bg-orange-500/10";
+          else if (isAdv) cardClass += " border-l-4 border-l-yellow-500 bg-yellow-500/10";
 
           return (
             <motion.div key={payment.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className={cardClass}>
-              <div className="flex items-start justify-between mb-2">
+              <div className="flex items-start justify-between mb-3">
                 <div>
-                  <p className="font-medium text-foreground">{member?.fullName ?? 'Unknown'}</p>
-                  {isDue && <span className="text-xs text-orange-600 dark:text-orange-400 font-bold">Due: ₹{payment.dueAmount}</span>}
-                  {isAdv && <span className="text-xs text-yellow-600 dark:text-yellow-400 font-bold">Adv: ₹{payment.advancedAmount}</span>}
+                  <p className="font-medium text-white">{member?.fullName ?? 'Unknown'}</p>
+                  {isDue && <span className="text-xs text-orange-400 font-bold drop-shadow-sm block mt-0.5">Due: ₹{payment.dueAmount}</span>}
+                  {isAdv && <span className="text-xs text-yellow-400 font-bold drop-shadow-sm block mt-0.5">Adv: ₹{payment.advancedAmount}</span>}
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-foreground">₹{payment.amount.toLocaleString()}</span>
+                  <span className="text-sm font-bold text-white">₹{payment.amount.toLocaleString()}</span>
                   {!viewDeleted && (
-                    <Button variant="ghost" size="icon" onClick={() => handleDeletePayment(payment.id)} className="h-6 w-6 text-destructive hover:bg-destructive/10">
-                      <Trash2 className="w-4 h-4" />
+                    <Button variant="ghost" size="icon" onClick={() => handleDeletePayment(payment.id)} className="h-7 w-7 text-destructive hover:bg-destructive/20 hover:text-destructive bg-white/5">
+                      <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{format(parseISO(payment.date), 'MMM d, yyyy')}</span>
+              <div className="flex items-center gap-3 text-xs text-white/60">
+                <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" />{format(parseISO(payment.date), 'MMM d, yyyy')}</span>
                 <span>{payment.customDays ? `${payment.customDays} day(s)` : `${payment.months} month(s)`}</span>
-                <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-medium", payment.paymentMode === 'Online' ? "bg-accent/40 text-foreground" : "bg-muted text-muted-foreground")}>
+                <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-medium border", payment.paymentMode === 'Online' ? "bg-primary/80 text-primary-foreground border-primary/80" : "bg-white/80 text-black border-white/80")}>
                   {payment.paymentMode || 'Cash'}
                 </span>
               </div>
-              {payment.note && <p className="text-xs text-muted-foreground mt-1">{payment.note}</p>}
+              {payment.note && <p className="text-xs text-white/50 mt-2 bg-black/20 p-2 rounded-md border border-white/5">{payment.note}</p>}
             </motion.div>
           );
         })}
-        {displayedPayments.length === 0 && <p className="text-center text-muted-foreground py-8">No payments found</p>}
+        {displayedPayments.length === 0 && <p className="text-center text-white/50 py-8 glass-panel rounded-2xl">No payments found</p>}
       </div>
 
       {/* Register Payment Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Register Payment</DialogTitle></DialogHeader>
+        <DialogContent className="bg-black/60 backdrop-blur-2xl border-white/10 shadow-[0_16px_64px_0_rgba(0,0,0,0.5)] text-white">
+          <DialogHeader><DialogTitle className="text-xl font-display text-white">Register Payment</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="flex flex-col gap-2">
-              <Label>Member *</Label>
+              <Label className="text-white/90">Member *</Label>
               <Popover open={openMemberSelect} onOpenChange={setOpenMemberSelect}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     role="combobox"
                     aria-expanded={openMemberSelect}
-                    className="justify-between w-full font-normal"
+                    className="justify-between w-full font-normal bg-black/20 border-white/10 text-white hover:bg-white/10 hover:text-white"
                   >
                     {form.memberId
                       ? members.find((m) => m.id === form.memberId)?.fullName
@@ -432,11 +429,11 @@ const Payments = () => {
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 max-h-[300px]" align="start">
-                  <Command>
-                    <CommandInput placeholder="Search member..." />
-                    <CommandList>
-                      <CommandEmpty>No member found.</CommandEmpty>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 max-h-[300px] bg-black/80 backdrop-blur-xl border-white/10 rounded-xl overflow-hidden shadow-2xl" align="start">
+                  <Command className="bg-transparent text-white">
+                    <CommandInput placeholder="Search member..." className="text-white placeholder:text-white/40" />
+                    <CommandList className="custom-scrollbar">
+                      <CommandEmpty className="text-white/50 p-4 text-center text-sm">No member found.</CommandEmpty>
                       <CommandGroup>
                         {members.map((m) => (
                           <CommandItem
@@ -446,10 +443,11 @@ const Payments = () => {
                               setForm(f => ({ ...f, memberId: m.id }));
                               setOpenMemberSelect(false);
                             }}
+                            className="text-white hover:bg-white/10 aria-selected:bg-white/10 aria-selected:text-white cursor-pointer"
                           >
                             <Check
                               className={cn(
-                                "mr-2 h-4 w-4 shrink-0",
+                                "mr-2 h-4 w-4 shrink-0 text-primary",
                                 form.memberId === m.id ? "opacity-100" : "opacity-0"
                               )}
                             />
@@ -463,125 +461,125 @@ const Payments = () => {
               </Popover>
             </div>
             {form.memberId && (outstanding.due > 0 || outstanding.adv > 0) && (
-              <div className="bg-muted p-3 rounded-md border border-border space-y-2">
-                <p className="text-sm font-semibold mb-1">Outstanding Balances</p>
-                {outstanding.due > 0 && <p className="text-xs text-orange-600 dark:text-orange-400 font-bold">Total Due: ₹{outstanding.due}</p>}
-                {outstanding.adv > 0 && <p className="text-xs text-yellow-600 dark:text-yellow-400 font-bold">Total Advanced: ₹{outstanding.adv}</p>}
-                <div className="flex items-center space-x-2 mt-2 pt-2 border-t border-border/50">
+              <div className="bg-black/30 p-4 rounded-xl border border-white/10 space-y-2 shadow-inner">
+                <p className="text-sm font-semibold mb-2 text-white/90">Outstanding Balances</p>
+                {outstanding.due > 0 && <p className="text-xs text-orange-400 font-bold bg-orange-500/10 px-2 py-1 rounded inline-block mr-2 border border-orange-500/20">Total Due: ₹{outstanding.due}</p>}
+                {outstanding.adv > 0 && <p className="text-xs text-yellow-400 font-bold bg-yellow-500/10 px-2 py-1 rounded inline-block border border-yellow-500/20">Total Advanced: ₹{outstanding.adv}</p>}
+                <div className="flex items-center space-x-2 mt-3 pt-3 border-t border-white/10">
                   <input
                     type="checkbox"
                     id="clearBalances"
                     checked={form.clearOutstanding}
                     onChange={(e) => setForm(f => ({ ...f, clearOutstanding: e.target.checked }))}
-                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                    className="rounded border-white/20 bg-black/40 text-primary focus:ring-primary shadow-sm h-4 w-4"
                   />
-                  <label htmlFor="clearBalances" className="text-xs font-medium leading-none cursor-pointer">
+                  <label htmlFor="clearBalances" className="text-sm font-medium leading-none cursor-pointer text-white/90 select-none">
                     Mark Cleared
                   </label>
                 </div>
               </div>
             )}
             <div>
-              <Label>Duration to Add *</Label>
+              <Label className="text-white/90">Duration to Add *</Label>
               <Select value={form.months} onValueChange={v => setForm(f => ({ ...f, months: v, customDays: '' }))}>
-                <SelectTrigger><SelectValue placeholder="Select duration" /></SelectTrigger>
-                <SelectContent>
-                  {[0, 1, 2, 3, 6, 12].map(m => <SelectItem key={m} value={String(m)}>{m} month{m !== 1 ? 's' : ''}</SelectItem>)}
-                  <SelectItem value="custom">Custom (Days)</SelectItem>
+                <SelectTrigger className="bg-black/20 border-white/10 text-white focus:ring-white/20"><SelectValue placeholder="Select duration" /></SelectTrigger>
+                <SelectContent className="bg-black/80 backdrop-blur-xl border-white/10 text-white">
+                  {[0, 1, 2, 3, 6, 12].map(m => <SelectItem key={m} value={String(m)} className="focus:bg-white/10 focus:text-white cursor-pointer">{m} month{m !== 1 ? 's' : ''}</SelectItem>)}
+                  <SelectItem value="custom" className="focus:bg-white/10 focus:text-white cursor-pointer xl:border-t xl:border-white/10 xl:mt-1 xl:pt-1">Custom (Days)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             {form.months === 'custom' && (
-              <div>
-                <Label>Number of Days *</Label>
-                <Input type="number" min="1" value={form.customDays} onChange={e => setForm(f => ({ ...f, customDays: e.target.value }))} placeholder="e.g. 15" />
-              </div>
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
+                <Label className="text-white/90 mb-1.5 block">Number of Days *</Label>
+                <Input type="number" min="1" value={form.customDays} onChange={e => setForm(f => ({ ...f, customDays: e.target.value }))} placeholder="e.g. 15" className="bg-black/20 border-white/10 text-white placeholder:text-white/30" />
+              </motion.div>
             )}
             <div>
-              <Label>Amount Paid (₹) *</Label>
-              <Input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="e.g. 500" />
+              <Label className="text-white/90 mb-1.5 block">Amount Paid (₹) *</Label>
+              <Input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="e.g. 500" className="bg-black/20 border-white/10 text-white placeholder:text-white/30" />
             </div>
             <div>
-              <Label>Payment Mode *</Label>
+              <Label className="text-white/90 mb-1.5 block">Payment Mode *</Label>
               <Select value={form.paymentMode} onValueChange={(v: 'Cash' | 'Online') => setForm(f => ({ ...f, paymentMode: v }))}>
-                <SelectTrigger><SelectValue placeholder="Select mode" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Cash">Cash</SelectItem>
-                  <SelectItem value="Online">Online</SelectItem>
+                <SelectTrigger className="bg-black/20 border-white/10 text-white focus:ring-white/20"><SelectValue placeholder="Select mode" /></SelectTrigger>
+                <SelectContent className="bg-black/80 backdrop-blur-xl border-white/10 text-white">
+                  <SelectItem value="Cash" className="focus:bg-white/10 focus:text-white cursor-pointer">Cash</SelectItem>
+                  <SelectItem value="Online" className="focus:bg-white/10 focus:text-white cursor-pointer">Online</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Amount Tracking</Label>
+                <Label className="text-white/90 mb-1.5 block">Amount Tracking</Label>
                 <Select value={form.amountType} onValueChange={(v: 'Regular' | 'Due' | 'Advanced') => setForm(f => ({ ...f, amountType: v, typeAmount: '' }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Regular">Regular</SelectItem>
-                    <SelectItem value="Due">Has Due Amount</SelectItem>
-                    <SelectItem value="Advanced">Advanced Deposit</SelectItem>
+                  <SelectTrigger className="bg-black/20 border-white/10 text-white focus:ring-white/20"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-black/80 backdrop-blur-xl border-white/10 text-white">
+                    <SelectItem value="Regular" className="focus:bg-white/10 focus:text-white cursor-pointer">Regular</SelectItem>
+                    <SelectItem value="Due" className="focus:bg-white/10 focus:text-white cursor-pointer">Has Due Amount</SelectItem>
+                    <SelectItem value="Advanced" className="focus:bg-white/10 focus:text-white cursor-pointer">Advanced Deposit</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               {form.amountType !== 'Regular' && (
-                <div>
-                  <Label>{form.amountType} Amount (₹) *</Label>
-                  <Input type="number" min="1" value={form.typeAmount} onChange={e => setForm(f => ({ ...f, typeAmount: e.target.value }))} placeholder={`e.g. 100`} />
-                </div>
+                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+                  <Label className="text-white/90 mb-1.5 block">{form.amountType} Amount (₹) *</Label>
+                  <Input type="number" min="1" value={form.typeAmount} onChange={e => setForm(f => ({ ...f, typeAmount: e.target.value }))} placeholder={`e.g. 100`} className="bg-black/20 border-white/10 text-white placeholder:text-white/30" />
+                </motion.div>
               )}
             </div>
 
             <div>
-              <Label>Note (optional)</Label>
-              <Input value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} placeholder="e.g. Renewal" />
+              <Label className="text-white/90 mb-1.5 block">Note (optional)</Label>
+              <Input value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} placeholder="e.g. Renewal" className="bg-black/20 border-white/10 text-white placeholder:text-white/30" />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave}>Register Payment</Button>
+          <DialogFooter className="mt-6 gap-3 sm:gap-0">
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="bg-white/5 border-white/10 text-white hover:bg-white/10">Cancel</Button>
+            <Button onClick={handleSave} className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20">Register Payment</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Clear Deleted Dialog */}
       <Dialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Clear Deleted Payments</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">Are you sure you want to permanently clear all deleted payments? Enter password to confirm.</p>
+        <DialogContent className="bg-black/60 backdrop-blur-2xl border-white/10 shadow-[0_16px_64px_0_rgba(0,0,0,0.5)] text-white">
+          <DialogHeader><DialogTitle className="text-xl font-display text-white">Clear Deleted Payments</DialogTitle></DialogHeader>
+          <div className="space-y-4 my-2">
+            <p className="text-sm text-white/70">Are you sure you want to permanently clear all deleted payments? Enter password to confirm.</p>
             <div>
-              <Label>Password</Label>
-              <Input type="password" value={clearPassword} onChange={e => setClearPassword(e.target.value)} />
+              <Label className="text-white/90 mb-1.5 block">Password</Label>
+              <Input type="password" value={clearPassword} onChange={e => setClearPassword(e.target.value)} className="bg-black/20 border-white/10 text-white focus:ring-white/20" />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setClearDialogOpen(false); setClearPassword(''); }}>Cancel</Button>
-            <Button variant="destructive" onClick={handleClearDeleted}>Clear</Button>
+          <DialogFooter className="gap-3 sm:gap-0 mt-2">
+            <Button variant="outline" onClick={() => { setClearDialogOpen(false); setClearPassword(''); }} className="bg-white/5 border-white/10 text-white hover:bg-white/10">Cancel</Button>
+            <Button variant="destructive" onClick={handleClearDeleted} className="bg-destructive/80 hover:bg-destructive shadow-lg shadow-destructive/20">Clear</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* PDF Export Dialog */}
       <Dialog open={pdfDialogOpen} onOpenChange={setPdfDialogOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Download Payments PDF</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">Select a date range to filter the exported payments. Leave blank to export all displayed payments.</p>
+        <DialogContent className="bg-black/60 backdrop-blur-2xl border-white/10 shadow-[0_16px_64px_0_rgba(0,0,0,0.5)] text-white">
+          <DialogHeader><DialogTitle className="text-xl font-display text-white">Download Payments PDF</DialogTitle></DialogHeader>
+          <div className="space-y-4 my-2">
+            <p className="text-sm text-white/70">Select a date range to filter the exported payments. Leave blank to export all displayed payments.</p>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Start Date</Label>
-                <Input type="date" value={pdfStartDate} onChange={e => setPdfStartDate(e.target.value)} />
+                <Label className="text-white/90 mb-1.5 block">Start Date</Label>
+                <Input type="date" value={pdfStartDate} onChange={e => setPdfStartDate(e.target.value)} className="bg-black/20 border-white/10 text-white focus:ring-white/20 [color-scheme:dark]" />
               </div>
               <div>
-                <Label>End Date</Label>
-                <Input type="date" value={pdfEndDate} onChange={e => setPdfEndDate(e.target.value)} />
+                <Label className="text-white/90 mb-1.5 block">End Date</Label>
+                <Input type="date" value={pdfEndDate} onChange={e => setPdfEndDate(e.target.value)} className="bg-black/20 border-white/10 text-white focus:ring-white/20 [color-scheme:dark]" />
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPdfDialogOpen(false)}>Cancel</Button>
-            <Button onClick={exportToPDF} className="gap-2"><Download className="w-4 h-4" /> Export</Button>
+          <DialogFooter className="gap-3 sm:gap-0 mt-2">
+            <Button variant="outline" onClick={() => setPdfDialogOpen(false)} className="bg-white/5 border-white/10 text-white hover:bg-white/10">Cancel</Button>
+            <Button onClick={exportToPDF} className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"><Download className="w-4 h-4" /> Export</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

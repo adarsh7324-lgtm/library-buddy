@@ -56,18 +56,18 @@ const Dashboard = () => {
         ))}
       </div>
 
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="stat-card">
-        <h3 className="font-semibold text-foreground mb-4">Recent Members</h3>
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-panel p-6 rounded-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]">
+        <h3 className="font-semibold text-white mb-4">Recent Members</h3>
         <div className="space-y-3">
           {recentMembers.map(member => (
-            <div key={member.id} className="flex items-center justify-between py-2 border-b border-border/40 last:border-0">
+            <div key={member.id} className="flex items-center justify-between py-2 border-b border-white/10 last:border-0 hover:bg-white/5 px-2 rounded-lg transition-colors">
               <div>
-                <p className="font-medium text-sm text-foreground">{member.fullName}</p>
-                <p className="text-xs text-muted-foreground">{member.customDays ? `${member.customDays} day(s)` : `${member.months} month(s)`} • Joined {member.startDate ? format(parseISO(member.startDate), 'MMM d, yyyy') : 'N/A'}</p>
+                <p className="font-medium text-sm text-white">{member.fullName}</p>
+                <p className="text-xs text-white/60">{member.customDays ? `${member.customDays} day(s)` : `${member.months} month(s)`} • Joined {member.startDate ? format(parseISO(member.startDate), 'MMM d, yyyy') : 'N/A'}</p>
               </div>
-              <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${member.status === 'Active' ? 'bg-success/10 text-success' :
-                member.status === 'Expiring Soon' ? 'bg-warning/10 text-warning' :
-                  'bg-destructive/10 text-destructive'
+              <span className={`text-xs px-2.5 py-1 rounded-full font-medium border ${member.status === 'Active' ? 'bg-success/80 text-success-foreground border-success/80' :
+                member.status === 'Expiring Soon' ? 'bg-warning/80 text-warning-foreground border-warning/80' :
+                  'bg-destructive/80 text-destructive-foreground border-destructive/80'
                 }`}>
                 {member.status}
               </span>
@@ -77,22 +77,22 @@ const Dashboard = () => {
       </motion.div>
 
       {expiringSoon.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="stat-card border-warning/30 bg-warning/5">
-          <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="glass-panel p-6 rounded-2xl border-warning/30 bg-warning/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]">
+          <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-warning" /> Members Expiring Soon
           </h3>
           <div className="space-y-2">
             {expiringSoon.map(member => (
-              <div key={member.id} className="flex items-center justify-between py-2">
+              <div key={member.id} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
                 <div>
-                  <p className="font-medium text-sm text-foreground">{member.fullName}</p>
-                  <p className="text-xs text-muted-foreground">Expires {format(parseISO(member.expiryDate), 'MMM d, yyyy')}</p>
+                  <p className="font-medium text-sm text-white">{member.fullName}</p>
+                  <p className="text-xs text-white/60">Expires {format(parseISO(member.expiryDate), 'MMM d, yyyy')}</p>
                 </div>
                 <a
                   href={`https://wa.me/${member.countryCode.replace('+', '')}${member.phone}?text=${encodeURIComponent(`Hello ${member.fullName}, your library membership expires on ${format(parseISO(member.expiryDate), 'MMM d, yyyy')}. Please renew to continue access.`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-xs font-medium text-success hover:text-success/80 transition-colors"
+                  className="flex items-center gap-1.5 text-xs font-medium bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg text-white transition-colors"
                 >
                   <MessageSquare className="w-3.5 h-3.5" /> Remind
                 </a>

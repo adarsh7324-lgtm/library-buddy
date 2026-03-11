@@ -26,21 +26,21 @@ export default function SuperAdminDashboard() {
     }, []);
 
     return (
-        <div className="min-h-screen p-6 md:p-12" style={{ background: 'var(--gradient-hero)' }}>
+        <div className="min-h-screen p-6 md:p-12 relative z-10">
             <div className="max-w-4xl mx-auto space-y-8">
 
                 {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card/60 backdrop-blur-md p-6 rounded-2xl border border-border/50 shadow-sm">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 glass-panel p-6 rounded-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] border-white/10">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                        <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center text-primary border border-primary/30">
                             <ShieldCheck className="w-6 h-6" />
                         </div>
                         <div>
-                            <h1 className="text-2xl font-bold font-display text-foreground">Super Admin Portal</h1>
-                            <p className="text-muted-foreground text-sm">Manage all registered libraries</p>
+                            <h1 className="text-2xl font-bold font-display text-white">Super Admin Portal</h1>
+                            <p className="text-white/70 text-sm">Manage all registered libraries</p>
                         </div>
                     </div>
-                    <Button variant="outline" onClick={logout} className="shrink-0">
+                    <Button variant="outline" onClick={logout} className="shrink-0 bg-black/20 border-white/10 text-white hover:bg-white/10 hover:text-white">
                         Sign Out
                     </Button>
                 </div>
@@ -60,23 +60,23 @@ export default function SuperAdminDashboard() {
                                 }
                             }}
                         >
-                            <div className={`bg-card rounded-2xl border border-border p-6 shadow-sm transition-all duration-300 h-full flex flex-col items-start gap-4 ${lib.hasUserId ? 'hover:shadow-md hover:border-primary/30' : ''}`}>
-                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${lib.hasUserId ? 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                            <div className={`stat-card h-full flex flex-col items-start gap-4 ${lib.hasUserId ? 'hover:border-primary/50' : ''}`}>
+                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${lib.hasUserId ? 'bg-primary/20 text-primary border border-primary/30 group-hover:bg-primary group-hover:text-primary-foreground' : 'bg-white/10 text-white/50 border border-white/5'}`}>
                                     <Library className="w-5 h-5" />
                                 </div>
 
                                 <div className="flex-1 w-full">
-                                    <h3 className="font-semibold text-lg text-foreground mb-1 truncate">
+                                    <h3 className="font-semibold text-lg text-white mb-1 truncate">
                                         {lib.email}
                                     </h3>
                                     {!lib.hasUserId && (
-                                        <p className="text-xs text-destructive font-medium mt-1">
-                                            Library UUID missing. Please run SQL backfill.
+                                        <p className="text-xs text-destructive font-medium mt-1 bg-destructive/10 px-2 py-1 rounded inline-block">
+                                            Library UUID missing
                                         </p>
                                     )}
                                 </div>
 
-                                <div className={`mt-auto pt-4 w-full flex items-center justify-between text-sm font-medium transition-opacity ${lib.hasUserId ? 'text-primary opacity-80 group-hover:opacity-100' : 'text-muted-foreground'}`}>
+                                <div className={`mt-auto pt-4 w-full flex items-center justify-between text-sm font-medium transition-opacity ${lib.hasUserId ? 'text-primary opacity-80 group-hover:opacity-100' : 'text-white/50'}`}>
                                     <span>{lib.hasUserId ? 'Manage Library' : 'Unlinked Library'}</span>
                                     {lib.hasUserId && <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />}
                                 </div>
