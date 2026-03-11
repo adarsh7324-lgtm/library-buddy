@@ -168,7 +168,7 @@ const Members = () => {
             </div>
             <p className="text-xs text-white/50 mb-3">Joined {member.startDate ? format(parseISO(member.startDate), 'MMM d, yyyy') : '-'} • Expires {format(parseISO(member.expiryDate), 'MMM d, yyyy')}</p>
             <div className="flex gap-2">
-              <Button size="sm" className="text-xs bg-white text-black hover:bg-white/90 border-0" onClick={() => setSelectedMemberId(member.id)}><User className="w-3 h-3 mr-1" /> ID Card</Button>
+              <Button size="sm" className="text-xs bg-white/40 text-white hover:bg-white/50 border-0" onClick={() => setSelectedMemberId(member.id)}><User className="w-3 h-3 mr-1" /> ID Card</Button>
               <Button size="sm" variant="outline" className="text-xs text-destructive bg-destructive/10 border-destructive/20 hover:bg-destructive/20 hover:text-destructive" onClick={() => handleDelete(member.id)}><Trash2 className="w-3 h-3 mr-1" /> Delete</Button>
               <a href={`https://wa.me/${member.countryCode.replace('+', '')}${member.phone}?text=${encodeURIComponent(`Hello ${member.fullName}, your library membership expires on ${format(parseISO(member.expiryDate), 'MMM d, yyyy')}. Please renew to continue access.`)}`} target="_blank" rel="noopener noreferrer">
                 <Button size="sm" variant="outline" className="text-xs text-success bg-success/10 border-success/20 hover:bg-success/20 hover:text-success"><MessageSquare className="w-3 h-3 mr-1" /> WhatsApp</Button>
