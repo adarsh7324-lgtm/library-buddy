@@ -304,8 +304,8 @@ const Payments = () => {
         </div>
         <div className="glass-panel p-5 rounded-2xl border border-primary/30 shadow-[0_8px_32px_0_rgba(var(--primary),0.15)] bg-primary/10 backdrop-blur-md relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent pointer-events-none" />
-            <h3 className="text-sm font-medium text-primary-foreground/90 relative z-10">Today's Total Revenue</h3>
-            <div className="text-2xl font-bold text-primary-foreground drop-shadow-sm relative z-10">₹{dailyStats.total.toLocaleString()}</div>
+            <h3 className="text-sm font-medium text-white/90 relative z-10">Today's Total Revenue</h3>
+            <div className="text-2xl font-bold text-white drop-shadow-sm relative z-10">₹{dailyStats.total.toLocaleString()}</div>
         </div>
       </div>
 
