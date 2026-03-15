@@ -23,6 +23,7 @@ export interface Member {
   endTime?: string;
   lockerFacility?: boolean;
   registrationFee?: number;
+  discountAmount?: number;
   customDays?: number;
   photoUrl?: string;
   targetExam?: string;
