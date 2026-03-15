@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { motion } from 'framer-motion';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
@@ -19,6 +20,8 @@ const Members = () => {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('All');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [isEditingIdCard, setIsEditingIdCard] = useState(false);
+  const [editForm, setEditForm] = useState<any>({});
 
   const today = new Date();
 
@@ -211,56 +214,150 @@ const Members = () => {
                       <h2 className="text-2xl font-display font-bold text-primary">LIBRARY BUDDY</h2>
                       <p className="text-xs text-white/50 tracking-widest uppercase font-semibold">Member Identity Card</p>
                     </div>
-                    <CreditCard className="w-8 h-8 text-primary/30" />
+                    {!isEditingIdCard ? (
+                      <Button size="sm" variant="outline" className="h-8 border-white/20 text-white bg-white/5 hover:bg-white/10" onClick={() => {
+                        setIsEditingIdCard(true);
+                        setEditForm({
+                          fullName: member.fullName,
+                          phone: member.phone,
+                          address: member.address || '',
+                          seatNumber: member.seatNumber || '',
+                          shift: member.shift || '',
+                          startTime: member.startTime || '',
+                          endTime: member.endTime || '',
+                          lockerFacility: member.lockerFacility || false,
+                          idProofNumber: member.idProofNumber || '',
+                          targetExam: member.targetExam || '',
+                        });
+                      }}>
+                        Edit
+                      </Button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="ghost" className="h-8 text-white hover:bg-white/10" onClick={() => setIsEditingIdCard(false)}>Cancel</Button>
+                        <Button size="sm" className="h-8 bg-primary hover:bg-primary/90 text-white" onClick={async () => {
+                          try {
+                            const { updateMember } = await import('@/context/LibraryContext'); // This is already in scope from the hook, but we use the destructured version from line 18
+                            // Wait, `updateMember` is destructured at the top? No, let me get it from the hook. Let me check the top of the file.
+                            await useLibrary().updateMember(member.id, editForm); // Actually, we need to get updateMember from the useLibrary hook that is already called at the top of the component.
+                          } catch (e) {
+                            toast.error('Failed to update member');
+                          }
+                        }}>Save</Button>
+                      </div>
+                    )}
                   </div>
 
                   <div className="pt-2 border-t border-white/10 space-y-3">
                     <div className="grid grid-cols-2 gap-y-3 gap-x-4">
-                      <div className="col-span-1">
-                        <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Phone</p>
-                        <p className="font-medium text-sm text-white/90">{member.countryCode} {member.phone}</p>
-                      </div>
-                      <div className="col-span-1">
-                        <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Seat Number</p>
-                        <p className="font-medium text-sm text-white/90">{member.seatNumber || 'N/A'}</p>
-                      </div>
-                      <div className="col-span-1">
-                        <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Shift</p>
-                        <p className="font-medium text-sm text-white/90">{member.shift || 'N/A'}</p>
-                      </div>
-                      <div className="col-span-1">
-                        <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Time Slot</p>
-                        <p className="font-medium text-sm text-white/90">{member.startTime ? `${member.startTime} - ${member.endTime}` : 'N/A'}</p>
-                      </div>
-                      <div className="col-span-1">
-                        <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Address</p>
-                        <p className="font-medium text-sm text-white/90 truncate" title={member.address}>{member.address || 'N/A'}</p>
-                      </div>
-                      <div className="col-span-1">
-                        <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Locker</p>
-                        <p className="font-medium text-sm font-bold text-white">{member.lockerFacility ? 'Yes' : 'No'}</p>
-                      </div>
-                      <div className="col-span-1">
-                        <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">ID Proof</p>
-                        <p className="font-medium text-sm text-white/90">{member.idProofNumber || 'N/A'}</p>
-                      </div>
-                      <div className="col-span-1">
-                        <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Target Exam</p>
-                        <p className="font-medium text-sm text-white/90">{member.targetExam || 'N/A'}</p>
-                      </div>
+                      {isEditingIdCard ? (
+                        <>
+                          <div className="col-span-2">
+                            <Label className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Full Name</Label>
+                            <Input value={editForm.fullName} onChange={e => setEditForm({ ...editForm, fullName: e.target.value })} className="h-8 bg-black/20 text-sm" />
+                          </div>
+                          <div className="col-span-1">
+                            <Label className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Phone</Label>
+                            <Input value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} className="h-8 bg-black/20 text-sm" />
+                          </div>
+                          <div className="col-span-1">
+                            <Label className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Seat Number</Label>
+                            <Input value={editForm.seatNumber} onChange={e => setEditForm({ ...editForm, seatNumber: e.target.value })} className="h-8 bg-black/20 text-sm" />
+                          </div>
+                          <div className="col-span-1">
+                            <Label className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Shift</Label>
+                            <Select value={editForm.shift} onValueChange={v => setEditForm({ ...editForm, shift: v })}>
+                              <SelectTrigger className="h-8 bg-black/20 text-sm"><SelectValue placeholder="Shift" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Morning">Morning</SelectItem>
+                                <SelectItem value="Afternoon">Afternoon</SelectItem>
+                                <SelectItem value="Evening">Evening</SelectItem>
+                                <SelectItem value="Night">Night</SelectItem>
+                                <SelectItem value="Full">Full</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="col-span-1 flex gap-2">
+                            <div className="flex-1">
+                              <Label className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Start Time</Label>
+                              <Input type="time" value={editForm.startTime} onChange={e => setEditForm({ ...editForm, startTime: e.target.value })} className="h-8 bg-black/20 text-sm [color-scheme:dark]" />
+                            </div>
+                            <div className="flex-1">
+                              <Label className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">End Time</Label>
+                              <Input type="time" value={editForm.endTime} onChange={e => setEditForm({ ...editForm, endTime: e.target.value })} className="h-8 bg-black/20 text-sm [color-scheme:dark]" />
+                            </div>
+                          </div>
+                          <div className="col-span-2">
+                            <Label className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Address</Label>
+                            <Input value={editForm.address} onChange={e => setEditForm({ ...editForm, address: e.target.value })} className="h-8 bg-black/20 text-sm" />
+                          </div>
+                          <div className="col-span-1 flex items-center gap-2">
+                            <Switch checked={editForm.lockerFacility} onCheckedChange={c => setEditForm({ ...editForm, lockerFacility: c })} />
+                            <Label className="text-[10px] text-white/50 uppercase font-semibold">Locker</Label>
+                          </div>
+                          <div className="col-span-1">
+                            <Label className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">ID Proof</Label>
+                            <Input value={editForm.idProofNumber} onChange={e => setEditForm({ ...editForm, idProofNumber: e.target.value })} className="h-8 bg-black/20 text-sm" />
+                          </div>
+                          <div className="col-span-2">
+                            <Label className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Target Exam</Label>
+                            <Input value={editForm.targetExam} onChange={e => setEditForm({ ...editForm, targetExam: e.target.value })} className="h-8 bg-black/20 text-sm" />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="col-span-1">
+                            <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Phone</p>
+                            <p className="font-medium text-sm text-white/90">{member.countryCode} {member.phone}</p>
+                          </div>
+                          <div className="col-span-1">
+                            <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Seat Number</p>
+                            <p className="font-medium text-sm text-white/90">{member.seatNumber || 'N/A'}</p>
+                          </div>
+                          <div className="col-span-1">
+                            <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Shift</p>
+                            <p className="font-medium text-sm text-white/90">{member.shift || 'N/A'}</p>
+                          </div>
+                          <div className="col-span-1">
+                            <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Time Slot</p>
+                            <p className="font-medium text-sm text-white/90">{member.startTime ? `${member.startTime} - ${member.endTime}` : 'N/A'}</p>
+                          </div>
+                          <div className="col-span-1">
+                            <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Address</p>
+                            <p className="font-medium text-sm text-white/90 truncate" title={member.address}>{member.address || 'N/A'}</p>
+                          </div>
+                          <div className="col-span-1">
+                            <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Locker</p>
+                            <p className="font-medium text-sm font-bold text-white">{member.lockerFacility ? 'Yes' : 'No'}</p>
+                          </div>
+                          <div className="col-span-1">
+                            <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">ID Proof</p>
+                            <p className="font-medium text-sm text-white/90">{member.idProofNumber || 'N/A'}</p>
+                          </div>
+                          <div className="col-span-1">
+                            <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Target Exam</p>
+                            <p className="font-medium text-sm text-white/90">{member.targetExam || 'N/A'}</p>
+                          </div>
+                        </>
+                      )}
+                      <div className="col-span-2 border-t border-white/10 mt-2 mb-1"></div>
                       <div className="col-span-1">
                         <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Duration</p>
                         <p className="font-medium text-sm text-white/90">{member.customDays ? `${member.customDays} Day(s)` : `${member.months} Month(s)`}</p>
-                      </div>
-                      <div className="col-span-1">
-                        <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Reg. Fee</p>
-                        <p className="font-medium text-sm text-white/90">{member.registrationFee ? `₹${member.registrationFee}` : 'N/A'}</p>
                       </div>
                       <div className="col-span-1">
                         <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Joined</p>
                         <p className="font-medium text-sm text-white/90">{member.startDate ? format(parseISO(member.startDate), 'MMM d, yyyy') : 'N/A'}</p>
                       </div>
                       <div className="col-span-1">
+                        <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Reg. Fee</p>
+                        <p className="font-medium text-sm text-white/90">{member.registrationFee ? `₹${member.registrationFee}` : 'N/A'}</p>
+                      </div>
+                      <div className="col-span-1">
+                        <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Fees Paid</p>
+                        <p className="font-medium text-sm text-white/90">₹{member.feesPaid || 0}</p>
+                      </div>
+                      <div className="col-span-2 border-t border-white/10 mt-2 pt-2">
                         <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Valid Till</p>
                         <p className="font-medium text-sm text-primary">{format(parseISO(member.expiryDate), 'MMM d, yyyy')}</p>
                       </div>
