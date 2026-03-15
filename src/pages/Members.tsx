@@ -50,6 +50,7 @@ const Members = () => {
       m.fullName,
       `${m.countryCode} ${m.phone}`,
       m.seatNumber || '-',
+      m.shift || '-',
       m.startTime ? `${m.startTime} - ${m.endTime}` : '-',
       m.startDate ? format(parseISO(m.startDate), 'MMM d, yyyy') : '-',
       format(parseISO(m.expiryDate), 'MMM d, yyyy'),
@@ -57,7 +58,7 @@ const Members = () => {
     ]);
 
     autoTable(doc, {
-      head: [['Name', 'Phone', 'Seat', 'Time', 'Join Date', 'Expiry', 'Status']],
+      head: [['Name', 'Phone', 'Seat', 'Shift', 'Time', 'Join Date', 'Expiry', 'Status']],
       body: tableData,
       startY: 20,
       theme: 'grid',
@@ -105,6 +106,7 @@ const Members = () => {
                 <th className="text-left py-4 px-5 font-medium text-white/70">Name</th>
                 <th className="text-left py-4 px-5 font-medium text-white/70">Phone</th>
                 <th className="text-left py-4 px-5 font-medium text-white/70">Seat</th>
+                <th className="text-left py-4 px-5 font-medium text-white/70">Shift</th>
                 <th className="text-left py-4 px-5 font-medium text-white/70">Time</th>
                 <th className="text-left py-4 px-5 font-medium text-white/70">Join Date</th>
                 <th className="text-left py-4 px-5 font-medium text-white/70">Expiry</th>
@@ -118,6 +120,7 @@ const Members = () => {
                   <td className="py-3 px-5 font-medium text-white">{member.fullName}</td>
                   <td className="py-3 px-5 text-white/70">{member.countryCode} {member.phone}</td>
                   <td className="py-3 px-5 text-white/70">{member.seatNumber || '-'}</td>
+                  <td className="py-3 px-5 text-white/70">{member.shift || '-'}</td>
                   <td className="py-3 px-5 text-white/70">{member.startTime ? `${member.startTime} - ${member.endTime}` : '-'}</td>
                   <td className="py-3 px-5 text-white/70">{member.startDate ? format(parseISO(member.startDate), 'MMM d, yyyy') : '-'}</td>
                   <td className="py-3 px-5 text-white/70">{format(parseISO(member.expiryDate), 'MMM d, yyyy')}</td>
@@ -157,7 +160,7 @@ const Members = () => {
             <div className="flex items-start justify-between mb-2">
               <div>
                 <p className="font-medium text-white">{member.fullName}</p>
-                <p className="text-xs text-white/60">{member.countryCode} {member.phone} {member.seatNumber ? `• Seat: ${member.seatNumber}` : ''} {member.startTime ? `• Time: ${member.startTime} - ${member.endTime}` : ''}</p>
+                <p className="text-xs text-white/60">{member.countryCode} {member.phone} {member.seatNumber ? `• Seat: ${member.seatNumber}` : ''} {member.shift ? `• Shift: ${member.shift}` : ''} {member.startTime ? `• Time: ${member.startTime} - ${member.endTime}` : ''}</p>
               </div>
               <span className={`text-xs px-2.5 py-1 rounded-full font-medium border ${member.status === 'Active' ? 'bg-success/80 text-success-foreground border-success/80' :
                 member.status === 'Expiring Soon' ? 'bg-warning/80 text-warning-foreground border-warning/80' :
@@ -222,10 +225,14 @@ const Members = () => {
                         <p className="font-medium text-sm text-white/90">{member.seatNumber || 'N/A'}</p>
                       </div>
                       <div className="col-span-1">
+                        <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Shift</p>
+                        <p className="font-medium text-sm text-white/90">{member.shift || 'N/A'}</p>
+                      </div>
+                      <div className="col-span-1">
                         <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Time Slot</p>
                         <p className="font-medium text-sm text-white/90">{member.startTime ? `${member.startTime} - ${member.endTime}` : 'N/A'}</p>
                       </div>
-                      <div className="col-span-2">
+                      <div className="col-span-1">
                         <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Address</p>
                         <p className="font-medium text-sm text-white/90 truncate" title={member.address}>{member.address || 'N/A'}</p>
                       </div>

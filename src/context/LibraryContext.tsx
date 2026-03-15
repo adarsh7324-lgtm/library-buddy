@@ -26,6 +26,7 @@ export interface Member {
   customDays?: number;
   photoUrl?: string;
   targetExam?: string;
+  shift?: 'Morning' | 'Afternoon' | 'Evening' | 'Night' | 'Full';
 }
 
 export interface Room {

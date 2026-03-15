@@ -1,5 +1,5 @@
 import { useLibrary } from '@/context/LibraryContext';
-import { Users, UserX, AlertTriangle, TrendingUp, MessageSquare } from 'lucide-react';
+import { Users, UserX, AlertTriangle, TrendingUp, MessageSquare, Sun, Sunset, Moon, Sunrise, Clock } from 'lucide-react';
 import { differenceInDays, parseISO, format } from 'date-fns';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -20,6 +20,22 @@ const Dashboard = () => {
     { label: 'Expired Members', value: expiredMembers.length, icon: UserX, color: 'text-destructive', path: '/reminders' },
     { label: 'Expiring in 7 Days', value: expiringSoon.length, icon: AlertTriangle, color: 'text-warning', path: '/reminders' },
     { label: 'Total Revenue', value: `₹${totalRevenue.toLocaleString()}`, icon: TrendingUp, color: 'text-primary' },
+  ];
+
+  const shiftCounts = {
+    Morning: activeMembers.filter(m => m.shift === 'Morning').length,
+    Afternoon: activeMembers.filter(m => m.shift === 'Afternoon').length,
+    Evening: activeMembers.filter(m => m.shift === 'Evening').length,
+    Night: activeMembers.filter(m => m.shift === 'Night').length,
+    Full: activeMembers.filter(m => m.shift === 'Full').length,
+  };
+
+  const shiftStats = [
+    { label: 'Morning', value: shiftCounts.Morning, icon: Sunrise, color: 'text-amber-400' },
+    { label: 'Afternoon', value: shiftCounts.Afternoon, icon: Sun, color: 'text-orange-400' },
+    { label: 'Evening', value: shiftCounts.Evening, icon: Sunset, color: 'text-rose-400' },
+    { label: 'Night', value: shiftCounts.Night, icon: Moon, color: 'text-indigo-400' },
+    { label: 'Full Day', value: shiftCounts.Full, icon: Clock, color: 'text-emerald-400' },
   ];
 
   const recentMembers = [...members]
@@ -55,6 +71,19 @@ const Dashboard = () => {
           </motion.div>
         ))}
       </div>
+
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-panel p-6 rounded-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]">
+        <h3 className="font-semibold text-white mb-4">Students by Shift (Active)</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          {shiftStats.map((stat, i) => (
+            <div key={stat.label} className="flex flex-col items-center justify-center p-4 rounded-xl bg-black/20 border border-white/5">
+              <stat.icon className={`w-6 h-6 mb-2 ${stat.color}`} />
+              <span className="text-2xl font-bold text-white">{stat.value}</span>
+              <span className="text-xs text-white/60 mt-1">{stat.label}</span>
+            </div>
+          ))}
+        </div>
+      </motion.div>
 
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-panel p-6 rounded-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]">
         <h3 className="font-semibold text-white mb-4">Recent Members</h3>

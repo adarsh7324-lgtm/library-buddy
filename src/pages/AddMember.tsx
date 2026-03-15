@@ -24,7 +24,7 @@ const AddMember = () => {
   const [form, setForm] = useState({
     fullName: '', phone: '', countryCode: '+91', address: '', idProofNumber: '',
     months: '', customDays: '', feesPaid: '', registrationFee: '', paymentMode: 'Cash' as 'Cash' | 'Online', startDate: format(new Date(), 'yyyy-MM-dd'), seatNumber: '', startTime: '09:00', endTime: '18:00', lockerFacility: false,
-    targetExam: ''
+    targetExam: '', shift: ''
   });
 
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
@@ -186,6 +186,7 @@ const AddMember = () => {
         endTime: form.endTime,
         lockerFacility: form.lockerFacility,
         targetExam: form.targetExam,
+        shift: form.shift || null,
       };
 
       if (form.registrationFee) {
@@ -347,6 +348,19 @@ const AddMember = () => {
             <div className="space-y-1.5">
               <Label className="text-white/90">End Time</Label>
               <Input type="time" value={form.endTime} onChange={e => setForm(f => ({ ...f, endTime: e.target.value, seatNumber: '' }))} className="bg-black/20 border-white/10 text-white focus-visible:ring-white/20 [color-scheme:dark]" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-white/90">Shift Details (optional)</Label>
+              <Select value={form.shift} onValueChange={v => setForm(f => ({ ...f, shift: v }))}>
+                <SelectTrigger className="bg-black/20 border-white/10 text-white focus:ring-white/20"><SelectValue placeholder="Select shift (optional)" /></SelectTrigger>
+                <SelectContent className="bg-black/60 backdrop-blur-xl border-white/10 text-white">
+                  <SelectItem value="Morning" className="focus:bg-white/10 focus:text-white">Morning</SelectItem>
+                  <SelectItem value="Afternoon" className="focus:bg-white/10 focus:text-white">Afternoon</SelectItem>
+                  <SelectItem value="Evening" className="focus:bg-white/10 focus:text-white">Evening</SelectItem>
+                  <SelectItem value="Night" className="focus:bg-white/10 focus:text-white">Night</SelectItem>
+                  <SelectItem value="Full" className="focus:bg-white/10 focus:text-white">Full</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label className="text-white/90">Seat Number (optional)</Label>
