@@ -314,7 +314,7 @@ const Members = () => {
 
       {/* ID Card Dialog */}
       <Dialog open={!!selectedMemberId} onOpenChange={() => setSelectedMemberId(null)}>
-        <DialogContent className="max-w-2xl p-0 overflow-hidden bg-transparent border-none shadow-none">
+        <DialogContent className="max-w-2xl p-0 bg-transparent border-none shadow-none overflow-y-auto max-h-[90vh]">
           {(() => {
             const member = members.find(m => m.id === selectedMemberId);
             if (!member) return null;
