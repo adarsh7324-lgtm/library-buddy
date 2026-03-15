@@ -16,7 +16,7 @@ import autoTable from 'jspdf-autotable';
 type FilterType = 'All' | 'Active' | 'Expired' | 'Expiring Soon';
 
 const Members = () => {
-  const { members, deleteMember } = useLibrary();
+  const { members, deleteMember, updateMember } = useLibrary();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('All');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
@@ -237,11 +237,11 @@ const Members = () => {
                         <Button size="sm" variant="ghost" className="h-8 text-white hover:bg-white/10" onClick={() => setIsEditingIdCard(false)}>Cancel</Button>
                         <Button size="sm" className="h-8 bg-primary hover:bg-primary/90 text-white" onClick={async () => {
                           try {
-                            const { updateMember } = await import('@/context/LibraryContext'); // This is already in scope from the hook, but we use the destructured version from line 18
-                            // Wait, `updateMember` is destructured at the top? No, let me get it from the hook. Let me check the top of the file.
-                            await useLibrary().updateMember(member.id, editForm); // Actually, we need to get updateMember from the useLibrary hook that is already called at the top of the component.
+                            await updateMember(member.id, editForm);
+                            setIsEditingIdCard(false);
+                            toast.success('Member updated');
                           } catch (e) {
-                            toast.error('Failed to update member');
+                            // Error is handled in context
                           }
                         }}>Save</Button>
                       </div>

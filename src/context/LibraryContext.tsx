@@ -423,6 +423,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     try {
       const { error } = await supabase.from('members').update(data).eq('id', id);
       if (error) throw error;
+      setMembers(prev => prev.map(m => m.id === id ? { ...m, ...data } : m));
     } catch (error) {
       console.error('Error updating member:', error);
       toast.error('Failed to update member');
