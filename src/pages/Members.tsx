@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLibrary } from '@/context/LibraryContext';
-import { Search, Trash2, MessageSquare, Download, User, CreditCard } from 'lucide-react';
+import { Search, Trash2, MessageSquare, Download, User, Printer } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { format, parseISO, differenceInDays } from 'date-fns';
@@ -22,6 +22,133 @@ const Members = () => {
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [isEditingIdCard, setIsEditingIdCard] = useState(false);
   const [editForm, setEditForm] = useState<any>({});
+  
+  const printIdCardPdf = async (member: any) => {
+    try {
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      doc.setFillColor(255, 255, 255);
+      doc.rect(0, 0, 210, 297, 'F');
+      
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.text('LIBRARY BUDDY', 105, 15, { align: 'center' });
+      doc.setFontSize(10);
+      doc.text('MEMBER IDENTITY CARD', 105, 20, { align: 'center' });
+
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.3);
+
+      let startY = 25;
+      let rowH = 10;
+      
+      // Block 1 Box
+      doc.rect(10, startY, 190, 50); 
+      
+      // Vertical lines for the left 150mm area
+      // Cols: 10 (+35=45) (+40=85) (+35=120) (+40=160)
+      doc.line(45, startY, 45, startY + 50);
+      doc.line(85, startY, 85, startY + 50);
+      doc.line(120, startY, 120, startY + 50);
+      doc.line(160, startY, 160, startY + 50); // Boundary for photo
+      
+      // Horizontal lines for the 5 rows
+      for (let i = 1; i < 5; i++) {
+        doc.line(10, startY + i * rowH, 160, startY + i * rowH);
+      }
+      
+      const drawTextInCell = (text: string, x: number, y: number, w: number, h: number, isLabel: boolean = false) => {
+        doc.setFont('helvetica', isLabel ? 'bold' : 'normal');
+        doc.setFontSize(isLabel ? 9 : 8);
+        const textLines = doc.splitTextToSize(text || '', w - 2);
+        const textHeight = textLines.length * doc.getLineHeight() / doc.internal.scaleFactor;
+        const startTextY = y + (h - textHeight) / 2 + (doc.getFontSize() / doc.internal.scaleFactor);
+        doc.text(textLines, x + 1, startTextY - 0.5);
+      };
+
+      // Header labels and values
+      drawTextInCell('Candidate Name:', 10, startY, 35, rowH, true);
+      drawTextInCell(member.fullName || 'N/A', 45, startY, 40, rowH);
+      drawTextInCell('Phone Number:', 85, startY, 35, rowH, true);
+      drawTextInCell(`${member.countryCode} ${member.phone}`, 120, startY, 40, rowH);
+      
+      drawTextInCell('ID Proof:', 10, startY + rowH, 35, rowH, true);
+      drawTextInCell(member.idProofNumber || '-', 45, startY + rowH, 40, rowH);
+      drawTextInCell('Target Exam:', 85, startY + rowH, 35, rowH, true);
+      drawTextInCell(member.targetExam || '-', 120, startY + rowH, 40, rowH);
+      
+      drawTextInCell('Joined Date:', 10, startY + rowH*2, 35, rowH, true);
+      drawTextInCell(member.startDate ? format(parseISO(member.startDate), 'dd.MM.yyyy') : '-', 45, startY + rowH*2, 40, rowH);
+      drawTextInCell('Valid Till:', 85, startY + rowH*2, 35, rowH, true);
+      drawTextInCell(member.expiryDate ? format(parseISO(member.expiryDate), 'dd.MM.yyyy') : '-', 120, startY + rowH*2, 40, rowH);
+
+      drawTextInCell('Status:', 10, startY + rowH*3, 35, rowH, true);
+      drawTextInCell(member.status || 'N/A', 45, startY + rowH*3, 40, rowH);
+      drawTextInCell('Duration:', 85, startY + rowH*3, 35, rowH, true);
+      drawTextInCell(member.customDays ? `${member.customDays} Day(s)` : `${member.months} Month(s)`, 120, startY + rowH*3, 40, rowH);
+      
+      drawTextInCell('Address:', 10, startY + rowH*4, 35, rowH, true);
+      drawTextInCell(member.address || '-', 45, startY + rowH*4, 40, rowH);
+      drawTextInCell('Locker:', 85, startY + rowH*4, 35, rowH, true);
+      drawTextInCell(member.lockerFacility ? 'Yes' : 'No', 120, startY + rowH*4, 40, rowH);
+
+      // Photo handling
+      try {
+        if (member.photoUrl) {
+          doc.addImage(member.photoUrl, 'WEBP', 161, startY + 1, 28, 48);
+        } else {
+          doc.text('PHOTO', 180, startY + 25, { align: 'center' });
+        }
+      } catch (e) {
+        doc.text('PHOTO', 180, startY + 25, { align: 'center' });
+      }
+
+      // Block 2: Library & Payment Details
+      let startY2 = startY + 50 + 5; // 5mm gap
+      doc.setFillColor(240, 240, 240);
+      doc.rect(10, startY2, 190, 8, 'FD'); // Fill and Draw
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Library & Payment Details', 105, startY2 + 5.5, { align: 'center' });
+      
+      let startY3 = startY2 + 8;
+      doc.rect(10, startY3, 190, 30); // 3 rows
+      
+      let c1 = 10, c2 = 57.5, c3 = 105, c4 = 152.5;
+      doc.line(c2, startY3, c2, startY3 + 30);
+      doc.line(c3, startY3, c3, startY3 + 30);
+      doc.line(c4, startY3, c4, startY3 + 30);
+      
+      doc.line(10, startY3 + 10, 200, startY3 + 10);
+      doc.line(10, startY3 + 20, 200, startY3 + 20);
+      
+      let wD = 47.5;
+      drawTextInCell('Seat Number:', c1, startY3, wD, rowH, true);
+      drawTextInCell(member.seatNumber || '-', c2, startY3, wD, rowH);
+      drawTextInCell('Shift:', c3, startY3, wD, rowH, true);
+      drawTextInCell(member.shift || '-', c4, startY3, wD, rowH);
+      
+      drawTextInCell('Time Slot:', c1, startY3 + rowH, wD, rowH, true);
+      drawTextInCell(member.startTime ? `${member.startTime} - ${member.endTime}` : '-', c2, startY3 + rowH, wD, rowH);
+      drawTextInCell('Reg. Fee:', c3, startY3 + rowH, wD, rowH, true);
+      drawTextInCell(member.registrationFee ? `Rs. ${member.registrationFee}` : '-', c4, startY3 + rowH, wD, rowH);
+      
+      drawTextInCell('Fees Paid:', c1, startY3 + rowH*2, wD, rowH, true);
+      drawTextInCell(`Rs. ${member.feesPaid || 0}`, c2, startY3 + rowH*2, wD, rowH);
+      drawTextInCell('Discount:', c3, startY3 + rowH*2, wD, rowH, true);
+      drawTextInCell(member.discountAmount ? `Rs. ${member.discountAmount}` : '-', c4, startY3 + rowH*2, wD, rowH);
+      
+      doc.save(`ID_${member.fullName.replace(/\s+/g, '_')}.pdf`);
+    } catch (error) {
+       console.error(error);
+       toast.error('Failed to generate PDF');
+    }
+  };
 
   const today = new Date();
 
@@ -193,7 +320,7 @@ const Members = () => {
             if (!member) return null;
 
             return (
-              <div className="bg-black/60 backdrop-blur-2xl w-full rounded-2xl overflow-hidden shadow-[0_16px_64px_0_rgba(0,0,0,0.5)] flex flex-col md:flex-row relative border border-white/10">
+              <div id="printable-id-card" className="bg-black/60 backdrop-blur-2xl w-full rounded-2xl overflow-hidden shadow-[0_16px_64px_0_rgba(0,0,0,0.5)] flex flex-col md:flex-row relative border border-white/10">
                 <div className="w-full md:w-1/3 bg-black/20 p-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-white/10">
                   <div className="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden border-4 border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] mb-4 bg-black/40 flex items-center justify-center">
                     {member.photoUrl ? (
@@ -215,23 +342,29 @@ const Members = () => {
                       <p className="text-xs text-white/50 tracking-widest uppercase font-semibold">Member Identity Card</p>
                     </div>
                     {!isEditingIdCard ? (
-                      <Button size="sm" variant="outline" className="h-8 border-white/20 text-white bg-white/5 hover:bg-white/10" onClick={() => {
-                        setIsEditingIdCard(true);
-                        setEditForm({
-                          fullName: member.fullName,
-                          phone: member.phone,
-                          address: member.address || '',
-                          seatNumber: member.seatNumber || '',
-                          shift: member.shift || '',
-                          startTime: member.startTime || '',
-                          endTime: member.endTime || '',
-                          lockerFacility: member.lockerFacility || false,
-                          idProofNumber: member.idProofNumber || '',
-                          targetExam: member.targetExam || '',
-                        });
-                      }}>
-                        Edit
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button id="print-btn" size="sm" variant="outline" className="h-8 border-white/20 text-white bg-white/5 hover:bg-white/10" onClick={() => printIdCardPdf(member)}>
+                          <Printer className="w-4 h-4 mr-1" /> Print
+                        </Button>
+                        <Button id="edit-btn" size="sm" variant="outline" className="h-8 border-white/20 text-white bg-white/5 hover:bg-white/10" onClick={() => {
+                          setIsEditingIdCard(true);
+                          setEditForm({
+                            fullName: member.fullName,
+                            phone: member.phone,
+                            address: member.address || '',
+                            seatNumber: member.seatNumber || '',
+                            shift: member.shift || '',
+                            startTime: member.startTime || '',
+                            endTime: member.endTime || '',
+                            lockerFacility: member.lockerFacility || false,
+                            idProofNumber: member.idProofNumber || '',
+                            targetExam: member.targetExam || '',
+                            discountAmount: member.discountAmount || '',
+                          });
+                        }}>
+                          Edit
+                        </Button>
+                      </div>
                     ) : (
                       <div className="flex gap-2">
                         <Button size="sm" variant="ghost" className="h-8 text-white hover:bg-white/10" onClick={() => setIsEditingIdCard(false)}>Cancel</Button>
@@ -299,9 +432,13 @@ const Members = () => {
                             <Label className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">ID Proof</Label>
                             <Input value={editForm.idProofNumber} onChange={e => setEditForm({ ...editForm, idProofNumber: e.target.value })} className="h-8 bg-black/20 text-sm" />
                           </div>
-                          <div className="col-span-2">
+                          <div className="col-span-1">
                             <Label className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Target Exam</Label>
                             <Input value={editForm.targetExam} onChange={e => setEditForm({ ...editForm, targetExam: e.target.value })} className="h-8 bg-black/20 text-sm" />
+                          </div>
+                          <div className="col-span-1">
+                            <Label className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Discount Amount (₹)</Label>
+                            <Input type="number" value={editForm.discountAmount} onChange={e => setEditForm({ ...editForm, discountAmount: e.target.value })} className="h-8 bg-black/20 text-sm" />
                           </div>
                         </>
                       ) : (
@@ -356,6 +493,10 @@ const Members = () => {
                       <div className="col-span-1">
                         <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Fees Paid</p>
                         <p className="font-medium text-sm text-white/90">₹{member.feesPaid || 0}</p>
+                      </div>
+                      <div className="col-span-1">
+                        <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Discount</p>
+                        <p className="font-medium text-sm text-white/90">{member.discountAmount ? `₹${member.discountAmount}` : 'N/A'}</p>
                       </div>
                       <div className="col-span-2 border-t border-white/10 mt-2 pt-2">
                         <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Valid Till</p>
