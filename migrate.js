@@ -1,23 +1,24 @@
+import 'dotenv/config';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, getDocs } from 'firebase/firestore';
 import { createClient } from '@supabase/supabase-js';
 
 // Firebase Config
 const firebaseConfig = {
-    apiKey: "AIzaSyCq72b6eTwU7-qjXzusiZlOlgIQeZmEpnU",
-    authDomain: "library-buddy-cb62d.firebaseapp.com",
-    projectId: "library-buddy-cb62d",
-    storageBucket: "library-buddy-cb62d.firebasestorage.app",
-    messagingSenderId: "888938627718",
-    appId: "1:888938627718:web:4e6b009450029b57760707"
+    apiKey: process.env.FIREBASE_API_KEY,
+    authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.FIREBASE_APP_ID
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 // Supabase Config
-const supabaseUrl = 'https://olqwlikslvyvypnrmlcb.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9scXdsaWtzbHZ5dnlwbnJtbGNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTk0MjIsImV4cCI6MjA4ODM5NTQyMn0.FZVqnkB6tkqGJO5MQNQZJ6bAlt73sDSccKTWC87m3mw';
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function migrate() {

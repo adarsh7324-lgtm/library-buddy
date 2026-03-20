@@ -515,14 +515,15 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     }
   }, [payments]);
 
-  const clearDeletedPayments = useCallback(async (password: string) => {
-    if (password !== 'Password@813') {
-      toast.error('Incorrect password');
-      throw new Error('Incorrect password');
-    }
-
+  const clearDeletedPayments = useCallback(async (_password: string) => {
     try {
       if (!activeLibraryId) return;
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        toast.error('You must be logged in to perform this action');
+        throw new Error('Not authenticated');
+      }
+
       const { error } = await supabase.from('deleted_payments').delete().eq('libraryId', activeLibraryId);
       if (error) throw error;
 
