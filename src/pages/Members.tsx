@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-type FilterType = 'All' | 'Active' | 'Expired' | 'Expiring Soon';
+type FilterType = 'All' | 'Morning' | 'Afternoon' | 'Evening' | 'Night' | 'Full Day' | 'Active' | 'Expired' | 'Expiring Soon';
 
 const Members = () => {
   const { members, payments, deleteMember, updateMember } = useLibrary();
@@ -214,9 +214,13 @@ const Members = () => {
       if (!matchSearch) return false;
       if (filter === 'Active') return m.status === 'Active';
       if (filter === 'Expired') return m.status === 'Expired';
-      if (filter === 'Expiring Soon') {
-        return m.status === 'Expiring Soon';
-      }
+      if (filter === 'Expiring Soon') return m.status === 'Expiring Soon';
+      
+      if (filter === 'Morning') return m.shift === 'Morning';
+      if (filter === 'Afternoon') return m.shift === 'Afternoon';
+      if (filter === 'Evening') return m.shift === 'Evening';
+      if (filter === 'Night') return m.shift === 'Night';
+      if (filter === 'Full Day') return m.shift === 'Full';
       return true;
     })
     .sort((a, b) => {
@@ -261,7 +265,7 @@ const Members = () => {
     doc.save('library_members.pdf');
   };
 
-  const filters: FilterType[] = ['All', 'Active', 'Expired', 'Expiring Soon'];
+  const filters: FilterType[] = ['All', 'Morning', 'Afternoon', 'Evening', 'Night', 'Full Day', 'Active', 'Expired', 'Expiring Soon'];
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -280,12 +284,17 @@ const Members = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50" />
           <Input placeholder="Search by name or phone..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10 bg-black/20 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-white/20 backdrop-blur-sm" />
         </div>
-        <div className="flex gap-2 flex-wrap">
-          {filters.map(f => (
-            <Button key={f} size="sm" variant={filter === f ? 'default' : 'outline'} onClick={() => setFilter(f)} className="text-xs">
-              {f}
-            </Button>
-          ))}
+        <div className="w-full sm:w-[200px] shrink-0">
+          <Select value={filter} onValueChange={(v) => setFilter(v as FilterType)}>
+            <SelectTrigger className="w-full bg-black/20 border-white/10 text-white h-10">
+              <SelectValue placeholder="Filter..." />
+            </SelectTrigger>
+            <SelectContent>
+              {filters.map(f => (
+                <SelectItem key={f} value={f}>{f}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
