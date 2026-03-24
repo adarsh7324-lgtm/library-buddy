@@ -37,9 +37,22 @@ const StaffManagement = () => {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64 = reader.result as string;
-        setPhotoPreview(base64);
-        setPhotoBase64(base64);
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 150;
+          const scale = MAX_WIDTH / img.width;
+          canvas.width = MAX_WIDTH;
+          canvas.height = img.height * scale;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            const compressed = canvas.toDataURL('image/webp', 0.5);
+            setPhotoPreview(compressed);
+            setPhotoBase64(compressed);
+          }
+        };
+        img.src = reader.result as string;
       };
       reader.readAsDataURL(file);
     }

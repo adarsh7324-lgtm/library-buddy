@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useLibrary } from '@/context/LibraryContext';
+import { useLibrary, Payment } from '@/context/LibraryContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -65,7 +65,7 @@ const Payments = () => {
       
       const finalNote = noteParts.join(' | ');
 
-      const paymentData: any = {
+      const paymentData: Omit<Payment, 'id' | 'libraryId'> = {
         memberId: form.memberId,
         amount: Number(form.amount),
         months: form.months === 'custom' ? 0 : Number(form.months),

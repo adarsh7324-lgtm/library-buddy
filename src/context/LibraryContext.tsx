@@ -155,11 +155,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setLoading(false);
-  }, []);
+
 
   useEffect(() => {
     const handleAuthSession = async (session: any) => {
@@ -379,6 +375,21 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     setExpenses(data as Expense[]);
   }, [activeLibraryId]);
 
+  const fetchData = useCallback(async () => {
+    if (!activeLibraryId || activeLibraryId === 'superadmin') return;
+    setLoading(true);
+    await Promise.all([
+      fetchMembers(),
+      fetchPayments(),
+      fetchDeletedPayments(),
+      fetchSettings(),
+      fetchStaff(),
+      fetchStaffSalaryPayments(),
+      fetchExpenses()
+    ]);
+    setLoading(false);
+  }, [activeLibraryId, fetchMembers, fetchPayments, fetchDeletedPayments, fetchSettings, fetchStaff, fetchStaffSalaryPayments, fetchExpenses]);
+
   useEffect(() => {
     if (!activeLibraryId || activeLibraryId === 'superadmin') {
       setMembers([]);
@@ -551,6 +562,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     try {
       const { error } = await supabase.from('members').delete().eq('id', id);
       if (error) throw error;
+      setMembers(prev => prev.filter(m => m.id !== id));
     } catch (error) {
       console.error('Error deleting member:', error);
       toast.error('Failed to delete member');
@@ -592,11 +604,12 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const addPayment = useCallback(async (payment: Omit<Payment, 'id' | 'libraryId'>) => {
     if (!activeLibraryId) throw new Error('Cannot register payment: No active library session');
     try {
-      const { error } = await supabase.from('payments').insert([{
+      const { data, error } = await supabase.from('payments').insert([{
         ...payment,
         libraryId: activeLibraryId
-      }]);
+      }]).select().single();
       if (error) throw error;
+      setPayments(prev => [...prev, data as Payment]);
     } catch (error) {
       console.error('Error adding payment:', error);
       toast.error('Failed to add payment');
@@ -611,17 +624,22 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
       const { id: paymentId, ...paymentData } = paymentToDel;
 
-      const { error: insertError } = await supabase.from('deleted_payments').insert([{
+      const { data: insertedDeletedPayment, error: insertError } = await supabase.from('deleted_payments').insert([{
         ...paymentData,
         originalPaymentId: paymentId,
         deletedAt: new Date().toISOString()
-      }]);
+      }]).select().single();
 
       if (insertError) throw insertError;
 
       const { error: deleteError } = await supabase.from('payments').delete().eq('id', id);
       if (deleteError) throw deleteError;
 
+      setPayments(prev => prev.filter(p => p.id !== id));
+      if (insertedDeletedPayment) {
+        setDeletedPayments(prev => [insertedDeletedPayment as DeletedPayment, ...prev]);
+      }
+      
       toast.success('Payment deleted');
     } catch (error) {
       console.error('Error deleting payment:', error);
@@ -642,6 +660,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.from('deleted_payments').delete().eq('libraryId', activeLibraryId);
       if (error) throw error;
 
+      setDeletedPayments([]);
       toast.success('Deleted payments cleared');
     } catch (error) {
       console.error('Error clearing deleted payments:', error);
@@ -764,11 +783,12 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const addStaffSalaryPayment = useCallback(async (payment: Omit<StaffSalaryPayment, 'id' | 'libraryId'>) => {
     if (!activeLibraryId) throw new Error('No active library session');
     try {
-      const { error } = await supabase.from('staff_salary_payments').insert([{
+      const { data, error } = await supabase.from('staff_salary_payments').insert([{
         ...payment,
         libraryId: activeLibraryId
-      }]);
+      }]).select().single();
       if (error) throw error;
+      setStaffSalaryPayments(prev => [...prev, data as StaffSalaryPayment]);
       toast.success('Salary payment recorded');
     } catch (error) {
       console.error('Error adding staff salary payment:', error);
@@ -798,6 +818,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     try {
       const { error } = await supabase.from('staff_salary_payments').delete().eq('id', id);
       if (error) throw error;
+      setStaffSalaryPayments(prev => prev.filter(p => p.id !== id));
       toast.success('Salary payment deleted');
     } catch (error) {
       console.error('Error deleting staff salary payment:', error);

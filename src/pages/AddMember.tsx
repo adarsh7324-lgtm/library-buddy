@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { useLibrary } from '@/context/LibraryContext';
+import { useLibrary, Member } from '@/context/LibraryContext';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -156,20 +156,22 @@ const AddMember = () => {
       return;
     }
     try {
-      const memberData: any = {
+      const memberData: Omit<Member, 'id' | 'libraryId'> = {
         fullName: form.fullName,
         phone: form.phone,
         countryCode: form.countryCode,
         address: form.address,
         idProofNumber: form.idProofNumber,
         startDate: form.startDate,
+        expiryDate: form.startDate,
+        months: 0,
+        feesPaid: 0,
         status: 'Active',
         seatNumber: form.seatNumber,
         startTime: form.startTime,
         endTime: form.endTime,
         lockerFacility: form.lockerFacility,
-        targetExam: form.targetExam,
-        shift: form.shift || null,
+        shift: (form.shift as 'Morning' | 'Afternoon' | 'Evening' | 'Night' | 'Full') || null,
       };
 
       await addMember(memberData, photoBase64 || undefined);
