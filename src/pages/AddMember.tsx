@@ -19,11 +19,11 @@ const timeToMinutes = (time?: string) => {
 };
 
 const AddMember = () => {
-  const { addMember, addPayment, settings, members } = useLibrary();
+  const { addMember, settings, members } = useLibrary();
   const navigate = useNavigate();
   const [form, setForm] = useState({
     fullName: '', phone: '', countryCode: '+91', address: '', idProofNumber: '',
-    months: '', customDays: '', feesPaid: '', registrationFee: '', discountAmount: '', paymentMode: 'Cash' as 'Cash' | 'Online', startDate: format(new Date(), 'yyyy-MM-dd'), seatNumber: '', startTime: '09:00', endTime: '18:00', lockerFacility: false,
+    startDate: format(new Date(), 'yyyy-MM-dd'), seatNumber: '', startTime: '09:00', endTime: '18:00', lockerFacility: false,
     targetExam: '', shift: ''
   });
 
@@ -147,26 +147,12 @@ const AddMember = () => {
     return availableByRoom;
   }, [settings?.rooms, members, form.startTime, form.endTime]);
 
-  const expiryDate = useMemo(() => {
-    if (!form.startDate || !form.months) return '';
-    const baseDate = new Date(form.startDate);
-
-    if (form.months === 'custom' && form.customDays) {
-      return format(addDays(baseDate, Number(form.customDays)), 'yyyy-MM-dd');
-    } else if (form.months !== 'custom') {
-      return format(addMonths(baseDate, Number(form.months)), 'yyyy-MM-dd');
-    }
-    return '';
-  }, [form.startDate, form.months, form.customDays]);
+  // Expiry date is no longer handled here since payment is separate
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.fullName || !form.phone || !form.months || !form.startDate) {
+    if (!form.fullName || !form.phone || !form.startDate) {
       toast.error('Please fill all required fields');
-      return;
-    }
-    if (form.months === 'custom' && !form.customDays) {
-      toast.error('Please specify custom days count');
       return;
     }
     try {
@@ -176,10 +162,7 @@ const AddMember = () => {
         countryCode: form.countryCode,
         address: form.address,
         idProofNumber: form.idProofNumber,
-        months: form.months === 'custom' ? 0 : Number(form.months),
-        feesPaid: Number(form.feesPaid) || 0,
         startDate: form.startDate,
-        expiryDate,
         status: 'Active',
         seatNumber: form.seatNumber,
         startTime: form.startTime,
@@ -187,38 +170,12 @@ const AddMember = () => {
         lockerFacility: form.lockerFacility,
         targetExam: form.targetExam,
         shift: form.shift || null,
-        discountAmount: Number(form.discountAmount) || 0,
       };
 
-      if (form.registrationFee) {
-        memberData.registrationFee = Number(form.registrationFee);
-      }
-
-      if (form.months === 'custom') {
-        memberData.customDays = Number(form.customDays);
-      }
-
-      const newMemberId = await addMember(memberData, photoBase64 || undefined);
-
-      if (Number(form.feesPaid) > 0) {
-        const paymentData: any = {
-          memberId: newMemberId,
-          amount: Number(form.feesPaid) + (Number(form.registrationFee) || 0),
-          months: form.months === 'custom' ? 0 : Number(form.months),
-          paymentMode: form.paymentMode,
-          date: form.startDate,
-          note: form.registrationFee ? 'Initial Registration & Monthly Fees' : 'Initial Registration Fee',
-        };
-        if (form.months === 'custom') {
-          paymentData.customDays = Number(form.customDays);
-        }
-        await addPayment(paymentData);
-      }
+      await addMember(memberData, photoBase64 || undefined);
       toast.success('Member added successfully!');
 
-      const durationText = form.months === 'custom' ? `${form.customDays} day(s)` : `${form.months} month(s)`;
-      const discountText = Number(form.discountAmount) > 0 ? `\n🏷️ Discount: ₹${form.discountAmount}` : '';
-      const message = `*Congratulations ${form.fullName}!* 🎉\nYou are now a member of the library.\n\n*Membership Details:*\n📱 Phone: ${form.countryCode} ${form.phone}\n⏳ Duration: ${durationText}\n💰 Fees Paid: ₹${form.feesPaid || 0} (${form.paymentMode})${form.registrationFee ? `\n💳 Registration Fee: ₹${form.registrationFee}` : ''}${discountText}\n📅 Join Date: ${format(new Date(form.startDate), 'dd MMM yyyy')}\n⌛ Expiry Date: ${format(new Date(expiryDate), 'dd MMM yyyy')}\n\nWelcome aboard! 📚`;
+      const message = `*Congratulations ${form.fullName}!* 🎉\nYou are now a member of the library.\n\n*Membership Details:*\n📱 Phone: ${form.countryCode} ${form.phone}\n📅 Join Date: ${format(new Date(form.startDate), 'dd MMM yyyy')}\n\nWelcome aboard! 📚`;
 
       const encodedMessage = encodeURIComponent(message);
       const waNumber = `${form.countryCode.replace('+', '')}${form.phone}`;
@@ -379,51 +336,9 @@ const AddMember = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-white/90">Membership Duration *</Label>
-              <Select value={form.months} onValueChange={v => setForm(f => ({ ...f, months: v, customDays: '' }))}>
-                <SelectTrigger className="bg-black/20 border-white/10 text-white focus:ring-white/20"><SelectValue placeholder="Select months" /></SelectTrigger>
-                <SelectContent className="bg-black/60 backdrop-blur-xl border-white/10 text-white">
-                  {[1, 2, 3, 6, 12].map(m => <SelectItem key={m} value={String(m)} className="focus:bg-white/10 focus:text-white">{m} month{m > 1 ? 's' : ''}</SelectItem>)}
-                  <SelectItem value="custom" className="focus:bg-white/10 focus:text-white">Custom (Days)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {form.months === 'custom' && (
-              <div className="space-y-1.5">
-                <Label className="text-white/90">Number of Days *</Label>
-                <Input type="number" min="1" value={form.customDays} onChange={e => setForm(f => ({ ...f, customDays: e.target.value }))} placeholder="e.g. 15" className="bg-black/20 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-white/20" />
-              </div>
-            )}
-            <div className="space-y-1.5">
-              <Label className="text-white/90">Fees Paid (₹)</Label>
-              <Input type="number" value={form.feesPaid} onChange={e => setForm(f => ({ ...f, feesPaid: e.target.value }))} placeholder="Amount paid" className="bg-black/20 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-white/20" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-white/90">Registration Fee (₹, optional)</Label>
-              <Input type="number" value={form.registrationFee} onChange={e => setForm(f => ({ ...f, registrationFee: e.target.value }))} placeholder="Reg. Amount" className="bg-black/20 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-white/20" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-white/90">Discount Amount (₹, optional)</Label>
-              <Input type="number" value={form.discountAmount} onChange={e => setForm(f => ({ ...f, discountAmount: e.target.value }))} placeholder="Discount Amount" className="bg-black/20 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-white/20" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-white/90">Payment Mode</Label>
-              <Select value={form.paymentMode} onValueChange={(v: 'Cash' | 'Online') => setForm(f => ({ ...f, paymentMode: v }))}>
-                <SelectTrigger className="bg-black/20 border-white/10 text-white focus:ring-white/20"><SelectValue /></SelectTrigger>
-                <SelectContent className="bg-black/60 backdrop-blur-xl border-white/10 text-white">
-                  <SelectItem value="Cash" className="focus:bg-white/10 focus:text-white">Cash</SelectItem>
-                  <SelectItem value="Online" className="focus:bg-white/10 focus:text-white">Online</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-white/90">Start Date *</Label>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label className="text-white/90">Registration Date *</Label>
               <Input type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} className="bg-black/20 border-white/10 text-white focus-visible:ring-white/20 [color-scheme:dark]" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-white/90">Expiry Date (auto)</Label>
-              <Input type="date" value={expiryDate} disabled className="bg-black/40 border-white/5 text-white/50 cursor-not-allowed [color-scheme:dark]" />
             </div>
           </div>
           <div className="pt-4 border-t border-white/10">

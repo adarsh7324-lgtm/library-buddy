@@ -17,7 +17,7 @@ import autoTable from 'jspdf-autotable';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const Payments = () => {
-  const { members, payments, deletedPayments, addPayment, updatePayment, upgradeMember, deletePayment, clearDeletedPayments } = useLibrary();
+  const { members, payments, deletedPayments, addPayment, updatePayment, upgradeMember, deletePayment, clearDeletedPayments, updateMember } = useLibrary();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [openMemberSelect, setOpenMemberSelect] = useState(false);
   const [form, setForm] = useState<{
@@ -25,9 +25,14 @@ const Payments = () => {
     amountType: 'Regular' | 'Due' | 'Advanced';
     typeAmount: string;
     clearOutstanding: boolean;
+    purpose: string;
+    registrationFee: string;
+    monthlyFee: string;
+    discountAmount: string;
   }>({
     memberId: '', amount: '', months: '', customDays: '', note: '', paymentMode: 'Cash',
-    amountType: 'Regular', typeAmount: '', clearOutstanding: false
+    amountType: 'Regular', typeAmount: '', clearOutstanding: false,
+    purpose: 'Renewal', registrationFee: '', monthlyFee: '', discountAmount: ''
   });
   const [viewDeleted, setViewDeleted] = useState(false);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
@@ -50,22 +55,29 @@ const Payments = () => {
       }
 
       const paymentDate = format(new Date(), 'yyyy-MM-dd');
+      
+      // Build a clean, readable note
+      let noteParts = [`${form.purpose}`];
+      if (form.note) noteParts.push(form.note);
+      if (form.registrationFee && Number(form.registrationFee) > 0) noteParts.push(`Reg: ₹${form.registrationFee}`);
+      if (form.monthlyFee && Number(form.monthlyFee) > 0) noteParts.push(`Monthly: ₹${form.monthlyFee}`);
+      if (form.discountAmount && Number(form.discountAmount) > 0) noteParts.push(`Disc: ₹${form.discountAmount}`);
+      
+      const finalNote = noteParts.join(' | ');
+
       const paymentData: any = {
         memberId: form.memberId,
         amount: Number(form.amount),
         months: form.months === 'custom' ? 0 : Number(form.months),
         paymentMode: form.paymentMode,
         date: paymentDate,
-        note: form.note,
+        note: finalNote,
         dueAmount: form.amountType === 'Due' ? Number(form.typeAmount) : 0,
         advancedAmount: form.amountType === 'Advanced' ? Number(form.typeAmount) : 0,
       };
 
       if (form.clearOutstanding) {
-        // Find existing outstanding balances to offset
         const pastPayments = payments.filter(p => p.memberId === form.memberId && ((p.dueAmount || 0) > 0 || (p.advancedAmount || 0) > 0));
-
-        // Zero them out retrospectively in the database
         await Promise.all(pastPayments.map(p =>
           updatePayment(p.id, { dueAmount: 0, advancedAmount: 0 })
         ));
@@ -74,7 +86,16 @@ const Payments = () => {
       if (form.months === 'custom') {
         paymentData.customDays = Number(form.customDays);
       }
+
       await addPayment(paymentData);
+
+      // Update Member Record with Registration Fee and Discount if applicable
+      if (form.purpose === 'New Admission' || Number(form.registrationFee) > 0 || Number(form.discountAmount) > 0) {
+        await updateMember(form.memberId, {
+          registrationFee: Number(form.registrationFee) || 0,
+          discountAmount: Number(form.discountAmount) || 0
+        });
+      }
 
       if (form.months === 'custom' && Number(form.customDays) > 0) {
         await upgradeMember(form.memberId, 0, Number(form.customDays));
@@ -87,30 +108,25 @@ const Payments = () => {
       // WhatsApp Redirect
       const member = members.find(m => m.id === form.memberId);
       if (member && member.phone) {
-        let message = `*Payment Confirmation* ✅\n\nDear ${member.fullName},\nWe have successfully received your payment.\n\n*Details:*\n💰 Amount: ₹${form.amount}\n`;
+        let message = `*Payment Confirmation* ✅\n\nDear ${member.fullName},\nWe have successfully received your payment for *${form.purpose}*.\n\n*Payment Details:*\n💰 Total Amount: ₹${form.amount}\n`;
+
+        if (Number(form.registrationFee) > 0) message += `💳 Registration Fee: ₹${form.registrationFee}\n`;
+        if (Number(form.monthlyFee) > 0) message += `📅 Monthly Fee: ₹${form.monthlyFee}\n`;
+        if (Number(form.discountAmount) > 0) message += `🏷️ Discount on Monthly Fee: ₹${form.discountAmount}\n`;
 
         if (form.months === 'custom' && Number(form.customDays) > 0) {
-          message += `⏳ Membership Extended: ${form.customDays} day(s)\n`;
+          message += `⏳ Membership Duration: ${form.customDays} day(s)\n`;
         } else if (Number(form.months) > 0) {
-          message += `⏳ Membership Extended: ${form.months} month(s)\n`;
+          message += `⏳ Membership Duration: ${form.months} month(s)\n`;
         }
 
-        if (paymentData.dueAmount > 0) {
-          message += `⏳ Due Amount Tracked: ₹${paymentData.dueAmount}\n`;
-        }
-        if (paymentData.advancedAmount > 0) {
-          message += `💰 Advanced Deposit Tracked: ₹${paymentData.advancedAmount}\n`;
-        }
-        if (form.clearOutstanding) {
-          message += `✨ Previous Outstanding Balances Cleared\n`;
-        }
+        if (paymentData.dueAmount > 0) message += `⏳ Due Amount Tracked: ₹${paymentData.dueAmount}\n`;
+        if (paymentData.advancedAmount > 0) message += `💰 Advanced Deposit Tracked: ₹${paymentData.advancedAmount}\n`;
+        if (form.clearOutstanding) message += `✨ Previous Outstanding Balances Cleared\n`;
 
         message += `💵 Payment Mode: ${form.paymentMode}\n`;
         message += `📅 Date: ${format(new Date(paymentDate), 'dd MMM yyyy')}\n`;
-
-        if (form.note) {
-          message += `📝 Note: ${form.note}\n`;
-        }
+        if (form.note) message += `📝 Note: ${form.note}\n`;
 
         message += `\nThank you for choosing Library Buddy! 📚`;
 
@@ -120,7 +136,7 @@ const Payments = () => {
       }
 
       setDialogOpen(false);
-      setForm({ memberId: '', amount: '', months: '', customDays: '', note: '', paymentMode: 'Cash', amountType: 'Regular', typeAmount: '', clearOutstanding: false });
+      setForm({ memberId: '', amount: '', months: '', customDays: '', note: '', paymentMode: 'Cash', amountType: 'Regular', typeAmount: '', clearOutstanding: false, purpose: 'Renewal', registrationFee: '', monthlyFee: '', discountAmount: '' });
     } catch (error) {
       toast.error('Failed to register payment');
     }
@@ -410,28 +426,42 @@ const Payments = () => {
 
       {/* Register Payment Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="bg-black/60 backdrop-blur-2xl border-white/10 shadow-[0_16px_64px_0_rgba(0,0,0,0.5)] text-white">
+        <DialogContent className="bg-black/80 backdrop-blur-2xl border-white/10 shadow-[0_16px_64px_0_rgba(0,0,0,0.5)] text-white max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle className="text-xl font-display text-white">Register Payment</DialogTitle></DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-6 pt-2">
+            <div>
+              <Label className="text-white/90 mb-1.5 block">Purpose of Payment *</Label>
+              <Select value={form.purpose} onValueChange={v => setForm(f => ({ ...f, purpose: v }))}>
+                <SelectTrigger className="bg-black/20 border-white/10 text-white focus:ring-white/20"><SelectValue placeholder="Select purpose" /></SelectTrigger>
+                <SelectContent className="bg-black/80 backdrop-blur-xl border-white/10 text-white">
+                  <SelectItem value="New Admission" className="focus:bg-white/10 focus:text-white cursor-pointer">New Admission</SelectItem>
+                  <SelectItem value="Renewal" className="focus:bg-white/10 focus:text-white cursor-pointer">Renewal / Extension</SelectItem>
+                  <SelectItem value="Late Fee" className="focus:bg-white/10 focus:text-white cursor-pointer">Late Fee</SelectItem>
+                  <SelectItem value="Locker Fee" className="focus:bg-white/10 focus:text-white cursor-pointer">Locker Fee</SelectItem>
+                  <SelectItem value="Other" className="focus:bg-white/10 focus:text-white cursor-pointer">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="flex flex-col gap-2">
-              <Label className="text-white/90">Member *</Label>
+              <Label className="text-white/90">Select Student *</Label>
               <Popover open={openMemberSelect} onOpenChange={setOpenMemberSelect}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     role="combobox"
                     aria-expanded={openMemberSelect}
-                    className="justify-between w-full font-normal bg-black/20 border-white/10 text-white hover:bg-white/10 hover:text-white"
+                    className="justify-between w-full font-normal bg-black/20 border-white/10 text-white hover:bg-white/10 hover:text-white h-10"
                   >
                     {form.memberId
                       ? members.find((m) => m.id === form.memberId)?.fullName
-                      : "Select member..."}
+                      : "Search student..."}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[--radix-popover-trigger-width] p-0 max-h-[300px] bg-black/80 backdrop-blur-xl border-white/10 rounded-xl overflow-hidden shadow-2xl" align="start">
                   <Command className="bg-transparent text-white">
-                    <CommandInput placeholder="Search member..." className="text-white placeholder:text-white/40" />
+                    <CommandInput placeholder="Search member..." className="text-white placeholder:text-white/40 border-none focus:ring-0" />
                     <CommandList className="custom-scrollbar">
                       <CommandEmpty className="text-white/50 p-4 text-center text-sm">No member found.</CommandEmpty>
                       <CommandGroup>
@@ -443,7 +473,7 @@ const Payments = () => {
                               setForm(f => ({ ...f, memberId: m.id }));
                               setOpenMemberSelect(false);
                             }}
-                            className="text-white hover:bg-white/10 aria-selected:bg-white/10 aria-selected:text-white cursor-pointer"
+                            className="text-white hover:bg-white/10 aria-selected:bg-white/10 aria-selected:text-white cursor-pointer py-2"
                           >
                             <Check
                               className={cn(
@@ -451,7 +481,10 @@ const Payments = () => {
                                 form.memberId === m.id ? "opacity-100" : "opacity-0"
                               )}
                             />
-                            {m.fullName} {m.phone ? `(${m.phone})` : ''}
+                            <div className="flex flex-col">
+                              <span className="font-medium">{m.fullName}</span>
+                              <span className="text-[10px] text-white/50">{m.phone}</span>
+                            </div>
                           </CommandItem>
                         ))}
                       </CommandGroup>
@@ -460,84 +493,116 @@ const Payments = () => {
                 </PopoverContent>
               </Popover>
             </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <Label className="text-white/90 mb-1.5 block">Registration Fee (₹)</Label>
+                <Input type="number" value={form.registrationFee} onChange={e => setForm(f => ({ ...f, registrationFee: e.target.value }))} placeholder="0" className="bg-black/20 border-white/10 text-white placeholder:text-white/30" />
+              </div>
+              <div>
+                <Label className="text-white/90 mb-1.5 block">Monthly Fee (₹)</Label>
+                <Input type="number" value={form.monthlyFee} onChange={e => setForm(f => ({ ...f, monthlyFee: e.target.value }))} placeholder="0" className="bg-black/20 border-white/10 text-white placeholder:text-white/30" />
+              </div>
+              <div>
+                <Label className="text-white/90 mb-1.5 block">Discount on Monthly Fee (₹)</Label>
+                <Input type="number" value={form.discountAmount} onChange={e => setForm(f => ({ ...f, discountAmount: e.target.value }))} placeholder="0" className="bg-black/20 border-white/10 text-white placeholder:text-white/30" />
+              </div>
+            </div>
+
+            {/* Auto-calculated display */}
+            <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 flex justify-between items-center shadow-inner">
+               <div className="text-xs uppercase tracking-wider text-white/50 font-bold">Registration Net Fee</div>
+               <div className="text-xl font-bold text-primary italic drop-shadow-sm">
+                 ₹{(Number(form.registrationFee || 0) + Number(form.monthlyFee || 0) - Number(form.discountAmount || 0)).toLocaleString()}
+               </div>
+            </div>
+
             {form.memberId && (outstanding.due > 0 || outstanding.adv > 0) && (
-              <div className="bg-black/30 p-4 rounded-xl border border-white/10 space-y-2 shadow-inner">
-                <p className="text-sm font-semibold mb-2 text-white/90">Outstanding Balances</p>
-                {outstanding.due > 0 && <p className="text-xs text-orange-400 font-bold bg-orange-500/10 px-2 py-1 rounded inline-block mr-2 border border-orange-500/20">Total Due: ₹{outstanding.due}</p>}
-                {outstanding.adv > 0 && <p className="text-xs text-yellow-400 font-bold bg-yellow-500/10 px-2 py-1 rounded inline-block border border-yellow-500/20">Total Advanced: ₹{outstanding.adv}</p>}
+              <div className="bg-orange-500/5 p-4 rounded-xl border border-orange-500/20 space-y-2 shadow-inner">
+                <p className="text-sm font-semibold mb-2 text-white/90 flex items-center gap-2"><IndianRupee className="w-3.5 h-3.5 text-orange-400" /> Outstanding Balances</p>
+                <div className="flex flex-wrap gap-2">
+                  {outstanding.due > 0 && <p className="text-xs text-orange-400 font-bold bg-orange-500/10 px-2 py-1 rounded border border-orange-500/20">Total Due: ₹{outstanding.due}</p>}
+                  {outstanding.adv > 0 && <p className="text-xs text-yellow-400 font-bold bg-yellow-500/10 px-2 py-1 rounded border border-yellow-500/20">Total Advanced: ₹{outstanding.adv}</p>}
+                </div>
                 <div className="flex items-center space-x-2 mt-3 pt-3 border-t border-white/10">
                   <input
                     type="checkbox"
                     id="clearBalances"
                     checked={form.clearOutstanding}
                     onChange={(e) => setForm(f => ({ ...f, clearOutstanding: e.target.checked }))}
-                    className="rounded border-white/20 bg-black/40 text-primary focus:ring-primary shadow-sm h-4 w-4"
+                    className="rounded border-white/20 bg-black/40 text-primary focus:ring-primary h-4 w-4"
                   />
-                  <label htmlFor="clearBalances" className="text-sm font-medium leading-none cursor-pointer text-white/90 select-none">
-                    Mark Cleared
+                  <label htmlFor="clearBalances" className="text-sm font-medium leading-none cursor-pointer text-white/70 select-none">
+                    Mark existing balances as cleared
                   </label>
                 </div>
               </div>
             )}
-            <div>
-              <Label className="text-white/90">Duration to Add *</Label>
-              <Select value={form.months} onValueChange={v => setForm(f => ({ ...f, months: v, customDays: '' }))}>
-                <SelectTrigger className="bg-black/20 border-white/10 text-white focus:ring-white/20"><SelectValue placeholder="Select duration" /></SelectTrigger>
-                <SelectContent className="bg-black/80 backdrop-blur-xl border-white/10 text-white">
-                  {[0, 1, 2, 3, 6, 12].map(m => <SelectItem key={m} value={String(m)} className="focus:bg-white/10 focus:text-white cursor-pointer">{m} month{m !== 1 ? 's' : ''}</SelectItem>)}
-                  <SelectItem value="custom" className="focus:bg-white/10 focus:text-white cursor-pointer xl:border-t xl:border-white/10 xl:mt-1 xl:pt-1">Custom (Days)</SelectItem>
-                </SelectContent>
-              </Select>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-white/90 mb-1.5 block">Duration *</Label>
+                <Select value={form.months} onValueChange={v => setForm(f => ({ ...f, months: v, customDays: '' }))}>
+                  <SelectTrigger className="bg-black/20 border-white/10 text-white focus:ring-white/20"><SelectValue placeholder="Select months" /></SelectTrigger>
+                  <SelectContent className="bg-black/80 backdrop-blur-xl border-white/10 text-white">
+                    {[0, 1, 2, 3, 6, 12].map(m => <SelectItem key={m} value={String(m)} className="focus:bg-white/10 focus:text-white cursor-pointer">{m} month{m !== 1 ? 's' : ''}</SelectItem>)}
+                    <SelectItem value="custom" className="focus:bg-white/10 focus:text-white cursor-pointer xl:border-t xl:border-white/10 xl:mt-1 xl:pt-1">Custom (Days)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-white/90 mb-1.5 block">Total Payment Amount (₹) *</Label>
+                <Input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="E.g. 500" className="bg-black/20 border-white/10 text-white placeholder:text-white/30 font-bold text-lg" />
+              </div>
             </div>
+
             {form.months === 'custom' && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
                 <Label className="text-white/90 mb-1.5 block">Number of Days *</Label>
                 <Input type="number" min="1" value={form.customDays} onChange={e => setForm(f => ({ ...f, customDays: e.target.value }))} placeholder="e.g. 15" className="bg-black/20 border-white/10 text-white placeholder:text-white/30" />
               </motion.div>
             )}
-            <div>
-              <Label className="text-white/90 mb-1.5 block">Amount Paid (₹) *</Label>
-              <Input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="e.g. 500" className="bg-black/20 border-white/10 text-white placeholder:text-white/30" />
-            </div>
-            <div>
-              <Label className="text-white/90 mb-1.5 block">Payment Mode *</Label>
-              <Select value={form.paymentMode} onValueChange={(v: 'Cash' | 'Online') => setForm(f => ({ ...f, paymentMode: v }))}>
-                <SelectTrigger className="bg-black/20 border-white/10 text-white focus:ring-white/20"><SelectValue placeholder="Select mode" /></SelectTrigger>
-                <SelectContent className="bg-black/80 backdrop-blur-xl border-white/10 text-white">
-                  <SelectItem value="Cash" className="focus:bg-white/10 focus:text-white cursor-pointer">Cash</SelectItem>
-                  <SelectItem value="Online" className="focus:bg-white/10 focus:text-white cursor-pointer">Online</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label className="text-white/90 mb-1.5 block">Amount Tracking</Label>
+                <Label className="text-white/90 mb-1.5 block">Payment Type</Label>
                 <Select value={form.amountType} onValueChange={(v: 'Regular' | 'Due' | 'Advanced') => setForm(f => ({ ...f, amountType: v, typeAmount: '' }))}>
                   <SelectTrigger className="bg-black/20 border-white/10 text-white focus:ring-white/20"><SelectValue /></SelectTrigger>
                   <SelectContent className="bg-black/80 backdrop-blur-xl border-white/10 text-white">
                     <SelectItem value="Regular" className="focus:bg-white/10 focus:text-white cursor-pointer">Regular</SelectItem>
-                    <SelectItem value="Due" className="focus:bg-white/10 focus:text-white cursor-pointer">Has Due Amount</SelectItem>
-                    <SelectItem value="Advanced" className="focus:bg-white/10 focus:text-white cursor-pointer">Advanced Deposit</SelectItem>
+                    <SelectItem value="Due" className="focus:bg-white/10 focus:text-white cursor-pointer font-bold text-orange-400">Due Amount</SelectItem>
+                    <SelectItem value="Advanced" className="focus:bg-white/10 focus:text-white cursor-pointer font-bold text-yellow-400">Advanced / Deposit</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               {form.amountType !== 'Regular' && (
                 <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
                   <Label className="text-white/90 mb-1.5 block">{form.amountType} Amount (₹) *</Label>
-                  <Input type="number" min="1" value={form.typeAmount} onChange={e => setForm(f => ({ ...f, typeAmount: e.target.value }))} placeholder={`e.g. 100`} className="bg-black/20 border-white/10 text-white placeholder:text-white/30" />
+                  <Input type="number" min="1" value={form.typeAmount} onChange={e => setForm(f => ({ ...f, typeAmount: e.target.value }))} placeholder={`Amount to track`} className="bg-black/20 border-white/10 text-white placeholder:text-white/30" />
                 </motion.div>
               )}
             </div>
 
-            <div>
-              <Label className="text-white/90 mb-1.5 block">Note (optional)</Label>
-              <Input value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} placeholder="e.g. Renewal" className="bg-black/20 border-white/10 text-white placeholder:text-white/30" />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-white/90 mb-1.5 block">Payment Mode *</Label>
+                <Select value={form.paymentMode} onValueChange={(v: 'Cash' | 'Online') => setForm(f => ({ ...f, paymentMode: v }))}>
+                  <SelectTrigger className="bg-black/20 border-white/10 text-white focus:ring-white/20"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-black/80 backdrop-blur-xl border-white/10 text-white">
+                    <SelectItem value="Cash" className="focus:bg-white/10 focus:text-white cursor-pointer">Cash</SelectItem>
+                    <SelectItem value="Online" className="focus:bg-white/10 focus:text-white cursor-pointer">Online</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-white/90">Note (optional)</Label>
+                <Input value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} placeholder="Any extra remarks" className="bg-black/20 border-white/10 text-white placeholder:text-white/30" />
+              </div>
             </div>
           </div>
-          <DialogFooter className="mt-6 gap-3 sm:gap-0">
-            <Button variant="outline" onClick={() => setDialogOpen(false)} className="bg-white/5 border-white/10 text-white hover:bg-white/10">Cancel</Button>
-            <Button onClick={handleSave} className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20">Register Payment</Button>
+          <DialogFooter className="mt-8 gap-3 sm:gap-0">
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="bg-white/5 border-white/10 text-white hover:bg-white/10 h-10 px-6">Cancel</Button>
+            <Button onClick={handleSave} className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 h-10 px-8 font-bold">Confirm & Register</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

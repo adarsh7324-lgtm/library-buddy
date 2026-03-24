@@ -81,9 +81,58 @@ interface LibraryContextType {
   updateSettings: (settings: Partial<LibrarySettings>) => Promise<void>;
   fetchData: () => Promise<void>;
   switchLibrary: (libraryId: string) => void;
+  addStaff: (staff: Omit<Staff, 'id' | 'libraryId'>, photoBase64?: string) => Promise<string>;
+  updateStaff: (id: string, staff: Partial<Staff>) => Promise<void>;
+  deleteStaff: (id: string) => Promise<void>;
+  addStaffSalaryPayment: (payment: Omit<StaffSalaryPayment, 'id' | 'libraryId'>) => Promise<void>;
+  updateStaffSalaryPayment: (id: string, updates: Partial<StaffSalaryPayment>) => Promise<void>;
+  deleteStaffSalaryPayment: (id: string) => Promise<void>;
+  addExpense: (expense: Omit<Expense, 'id' | 'libraryId'>) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
+  staff: Staff[];
+  staffSalaryPayments: StaffSalaryPayment[];
+  expenses: Expense[];
   loading: boolean;
   isAuthChecking: boolean;
   settings: LibrarySettings | null;
+}
+
+export interface Staff {
+  id: string;
+  libraryId: string;
+  fullName: string;
+  role: string;
+  phone: string;
+  countryCode?: string;
+  salary: number;
+  joiningDate: string;
+  status: 'Active' | 'Inactive';
+  address?: string;
+  idProofNumber?: string;
+  photoUrl?: string;
+  createdAt?: string;
+}
+
+export interface StaffSalaryPayment {
+  id: string;
+  libraryId: string;
+  staffId: string;
+  amount: number;
+  date: string;
+  status: 'Paid' | 'Pending' | 'Partial';
+  note?: string;
+  paymentMode?: 'Cash' | 'Online';
+  createdAt?: string;
+}
+
+export interface Expense {
+  id: string;
+  libraryId: string;
+  category: string;
+  amount: number;
+  date: string;
+  note?: string;
+  createdAt?: string;
 }
 
 const LibraryContext = createContext<LibraryContextType | undefined>(undefined);
@@ -92,6 +141,9 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [deletedPayments, setDeletedPayments] = useState<DeletedPayment[]>([]);
+  const [staff, setStaff] = useState<Staff[]>([]);
+  const [staffSalaryPayments, setStaffSalaryPayments] = useState<StaffSalaryPayment[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [settings, setSettings] = useState<LibrarySettings | null>(null);
   const [activeLibraryId, setActiveLibraryId] = useState<string | null>(() => {
     return sessionStorage.getItem('librarypro_library_id');
@@ -285,6 +337,48 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     setSettings(data ? (data as LibrarySettings) : {});
   }, [activeLibraryId]);
 
+  const fetchStaff = useCallback(async () => {
+    if (!activeLibraryId) return;
+    const { data, error } = await supabase
+      .from('staff')
+      .select('*')
+      .eq('libraryId', activeLibraryId);
+
+    if (error) {
+      console.error('Error fetching staff:', error);
+      return;
+    }
+    setStaff(data as Staff[]);
+  }, [activeLibraryId]);
+
+  const fetchStaffSalaryPayments = useCallback(async () => {
+    if (!activeLibraryId) return;
+    const { data, error } = await supabase
+      .from('staff_salary_payments')
+      .select('*')
+      .eq('libraryId', activeLibraryId);
+
+    if (error) {
+      console.error('Error fetching staff salary payments:', error);
+      return;
+    }
+    setStaffSalaryPayments(data as StaffSalaryPayment[]);
+  }, [activeLibraryId]);
+
+  const fetchExpenses = useCallback(async () => {
+    if (!activeLibraryId) return;
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('*')
+      .eq('libraryId', activeLibraryId);
+
+    if (error) {
+      console.error('Error fetching expenses:', error);
+      return;
+    }
+    setExpenses(data as Expense[]);
+  }, [activeLibraryId]);
+
   useEffect(() => {
     if (!activeLibraryId || activeLibraryId === 'superadmin') {
       setMembers([]);
@@ -302,7 +396,10 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       fetchMembers(),
       fetchPayments(),
       fetchDeletedPayments(),
-      fetchSettings()
+      fetchSettings(),
+      fetchStaff(),
+      fetchStaffSalaryPayments(),
+      fetchExpenses()
     ]).finally(() => setLoading(false));
 
     // Supabase Realtime Subscriptions
@@ -326,13 +423,31 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         fetchSettings();
       }).subscribe();
 
+    const staffChannel = supabase.channel('staff_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff' }, () => {
+        fetchStaff();
+      }).subscribe();
+
+    const staffPaymentsChannel = supabase.channel('staff_salary_payments_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_salary_payments' }, () => {
+        fetchStaffSalaryPayments();
+      }).subscribe();
+
+    const expensesChannel = supabase.channel('expenses_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => {
+        fetchExpenses();
+      }).subscribe();
+
     return () => {
       supabase.removeChannel(membersChannel);
       supabase.removeChannel(paymentsChannel);
       supabase.removeChannel(deletedPaymentsChannel);
       supabase.removeChannel(settingsChannel);
+      supabase.removeChannel(staffChannel);
+      supabase.removeChannel(staffPaymentsChannel);
+      supabase.removeChannel(expensesChannel);
     };
-  }, [activeLibraryId, fetchMembers, fetchPayments, fetchDeletedPayments, fetchSettings]);
+  }, [activeLibraryId, fetchMembers, fetchPayments, fetchDeletedPayments, fetchSettings, fetchStaff, fetchStaffSalaryPayments, fetchExpenses]);
 
   const login = useCallback((email: string, password: string) => {
     // Legacy credentials login removed in favor of Google OAuth
@@ -569,13 +684,167 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     }
   }, [activeLibraryId]);
 
+  const addStaff = useCallback(async (staffMember: Omit<Staff, 'id' | 'libraryId'>, photoBase64?: string) => {
+    if (!activeLibraryId) throw new Error('No active library session');
+    try {
+      let finalPhotoUrl = null;
+
+      if (photoBase64) {
+        // Convert base64 to blob
+        const base64Data = photoBase64.split(',')[1];
+        const byteCharacters = atob(base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'image/webp' });
+
+        const fileName = `${activeLibraryId}/${uuidv4()}.webp`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('staff-photos')
+          .upload(fileName, blob, {
+            contentType: 'image/webp',
+            upsert: false
+          });
+
+        if (uploadError) {
+          console.error("Staff photo upload failed:", uploadError);
+          toast.error("Failed to upload staff photo, but will continue inserting staff.");
+        } else {
+          const { data: publicUrlData } = supabase.storage
+            .from('staff-photos')
+            .getPublicUrl(fileName);
+            
+          finalPhotoUrl = publicUrlData.publicUrl;
+        }
+      }
+
+      const { data, error } = await supabase.from('staff').insert([{
+        ...staffMember,
+        libraryId: activeLibraryId,
+        photoUrl: finalPhotoUrl
+      }]).select().single();
+      
+      if (error) throw error;
+      setStaff(prev => [...prev, data as Staff]);
+      return data.id;
+    } catch (error) {
+      console.error('Error adding staff:', error);
+      toast.error('Failed to add staff');
+      throw error;
+    }
+  }, [activeLibraryId]);
+
+  const updateStaff = useCallback(async (id: string, data: Partial<Staff>) => {
+    try {
+      const { error } = await supabase.from('staff').update(data).eq('id', id);
+      if (error) throw error;
+      setStaff(prev => prev.map(s => s.id === id ? { ...s, ...data } : s));
+    } catch (error) {
+      console.error('Error updating staff:', error);
+      toast.error('Failed to update staff');
+      throw error;
+    }
+  }, []);
+
+  const deleteStaff = useCallback(async (id: string) => {
+    try {
+      const { error } = await supabase.from('staff').delete().eq('id', id);
+      if (error) throw error;
+      setStaff(prev => prev.filter(s => s.id !== id));
+    } catch (error) {
+      console.error('Error deleting staff:', error);
+      toast.error('Failed to delete staff');
+      throw error;
+    }
+  }, []);
+
+  const addStaffSalaryPayment = useCallback(async (payment: Omit<StaffSalaryPayment, 'id' | 'libraryId'>) => {
+    if (!activeLibraryId) throw new Error('No active library session');
+    try {
+      const { error } = await supabase.from('staff_salary_payments').insert([{
+        ...payment,
+        libraryId: activeLibraryId
+      }]);
+      if (error) throw error;
+      toast.success('Salary payment recorded');
+    } catch (error) {
+      console.error('Error adding staff salary payment:', error);
+      toast.error('Failed to add salary payment');
+      throw error;
+    }
+  }, [activeLibraryId]);
+
+  const updateStaffSalaryPayment = useCallback(async (id: string, updates: Partial<StaffSalaryPayment>) => {
+    if (!activeLibraryId) throw new Error('No active library session');
+    try {
+      const { error } = await supabase
+        .from('staff_salary_payments')
+        .update(updates)
+        .eq('id', id)
+        .eq('libraryId', activeLibraryId);
+      if (error) throw error;
+      setStaffSalaryPayments(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+    } catch (error) {
+      console.error('Error updating staff salary payment:', error);
+      toast.error('Failed to update salary payment');
+      throw error;
+    }
+  }, [activeLibraryId]);
+
+  const deleteStaffSalaryPayment = useCallback(async (id: string) => {
+    try {
+      const { error } = await supabase.from('staff_salary_payments').delete().eq('id', id);
+      if (error) throw error;
+      toast.success('Salary payment deleted');
+    } catch (error) {
+      console.error('Error deleting staff salary payment:', error);
+      toast.error('Failed to delete salary payment');
+      throw error;
+    }
+  }, []);
+
+  const addExpense = useCallback(async (expense: Omit<Expense, 'id' | 'libraryId'>) => {
+    if (!activeLibraryId) throw new Error('No active library session');
+    try {
+      const { data, error } = await supabase.from('expenses').insert([{
+        ...expense,
+        libraryId: activeLibraryId
+      }]).select().single();
+      if (error) throw error;
+      if (data) setExpenses(prev => [...prev, data as Expense]);
+      toast.success('Expense recorded');
+    } catch (error) {
+      console.error('Error adding expense:', error);
+      toast.error('Failed to add expense');
+      throw error;
+    }
+  }, [activeLibraryId]);
+
+  const deleteExpense = useCallback(async (id: string) => {
+    try {
+      const { error } = await supabase.from('expenses').delete().eq('id', id);
+      if (error) throw error;
+      setExpenses(prev => prev.filter(e => e.id !== id));
+      toast.success('Expense deleted');
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+      toast.error('Failed to delete expense');
+      throw error;
+    }
+  }, []);
+
   return (
     <LibraryContext.Provider value={{
       members, payments, deletedPayments, isAuthenticated, isSuperAdmin, activeLibraryId, login, loginWithGoogle, logout, addMember, updateMember, deleteMember,
       upgradeMember,
       addPayment,
       updatePayment,
-      deletePayment, clearDeletedPayments, updateSettings, fetchData, switchLibrary, loading, isAuthChecking, settings
+      deletePayment, clearDeletedPayments, updateSettings, fetchData, switchLibrary, loading, isAuthChecking, settings,
+      staff, staffSalaryPayments, addStaff, updateStaff, deleteStaff, addStaffSalaryPayment, updateStaffSalaryPayment, deleteStaffSalaryPayment,
+      expenses, addExpense, deleteExpense
     }}>
       {children}
     </LibraryContext.Provider>

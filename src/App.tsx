@@ -13,6 +13,8 @@ import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import Reminders from "./pages/Reminders";
 import Seats from "./pages/Seats";
+import StaffManagement from "./pages/StaffManagement";
+import Expenses from "./pages/Expenses";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import { ThemeProvider } from "./components/theme-provider";
 
@@ -52,6 +54,8 @@ const AppRoutes = () => (
     <Route path="/seats" element={<ProtectedRoute><Seats /></ProtectedRoute>} />
     <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
     <Route path="/reminders" element={<ProtectedRoute><Reminders /></ProtectedRoute>} />
+    <Route path="/staff" element={<ProtectedRoute><StaffManagement /></ProtectedRoute>} />
+    <Route path="/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );

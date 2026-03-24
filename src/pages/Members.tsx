@@ -16,7 +16,7 @@ import autoTable from 'jspdf-autotable';
 type FilterType = 'All' | 'Active' | 'Expired' | 'Expiring Soon';
 
 const Members = () => {
-  const { members, deleteMember, updateMember } = useLibrary();
+  const { members, payments, deleteMember, updateMember } = useLibrary();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('All');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
@@ -135,13 +135,69 @@ const Members = () => {
       
       drawTextInCell('Time Slot:', c1, startY3 + rowH, wD, rowH, true);
       drawTextInCell(member.startTime ? `${member.startTime} - ${member.endTime}` : '-', c2, startY3 + rowH, wD, rowH);
-      drawTextInCell('Reg. Fee:', c3, startY3 + rowH, wD, rowH, true);
-      drawTextInCell(member.registrationFee ? `Rs. ${member.registrationFee}` : '-', c4, startY3 + rowH, wD, rowH);
+      drawTextInCell('Duration:', c3, startY3 + rowH, wD, rowH, true);
+      drawTextInCell(member.customDays ? `${member.customDays} Day(s)` : `${member.months} Month(s)`, c4, startY3 + rowH, wD, rowH);
       
-      drawTextInCell('Fees Paid:', c1, startY3 + rowH*2, wD, rowH, true);
-      drawTextInCell(`Rs. ${member.feesPaid || 0}`, c2, startY3 + rowH*2, wD, rowH);
-      drawTextInCell('Discount:', c3, startY3 + rowH*2, wD, rowH, true);
-      drawTextInCell(member.discountAmount ? `Rs. ${member.discountAmount}` : '-', c4, startY3 + rowH*2, wD, rowH);
+      drawTextInCell('Joined Date:', c1, startY3 + rowH*2, wD, rowH, true);
+      drawTextInCell(member.startDate ? format(parseISO(member.startDate), 'dd.MM.yyyy') : '-', c2, startY3 + rowH*2, wD, rowH);
+      drawTextInCell('Valid Till:', c3, startY3 + rowH*2, wD, rowH, true);
+      drawTextInCell(member.expiryDate ? format(parseISO(member.expiryDate), 'dd.MM.yyyy') : '-', c4, startY3 + rowH*2, wD, rowH);
+
+      // Block 3: Outstanding Balances
+      let startY4 = startY3 + 30 + 5;
+      const memberPayments = payments.filter(p => p.memberId === member.id);
+      const totalDue = memberPayments.reduce((sum, p) => sum + (p.dueAmount || 0), 0);
+      const totalAdv = memberPayments.reduce((sum, p) => sum + (p.advancedAmount || 0), 0);
+
+      if (totalDue > 0 || totalAdv > 0) {
+        doc.setFillColor(255, 245, 235); // Light orange for balances
+        doc.rect(10, startY4, 190, 8, 'FD');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        let balanceText = '';
+        if (totalDue > 0) balanceText += `TOTAL DUE: Rs. ${totalDue}    `;
+        if (totalAdv > 0) balanceText += `TOTAL ADVANCED: Rs. ${totalAdv}`;
+        doc.text(balanceText, 105, startY4 + 5.5, { align: 'center' });
+        startY4 += 12;
+      } else {
+        startY4 += 5;
+      }
+
+      // Block 4: Payment History Table
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.text('PAYMENT HISTORY', 14, startY4);
+
+      if (memberPayments.length === 0) {
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(9);
+        doc.text('No payment records found.', 14, startY4 + 7);
+      } else {
+        const tableBody = memberPayments
+          .sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime())
+          .map(p => [
+            format(parseISO(p.date), 'dd/MM/yyyy'),
+            `Rs. ${p.amount}`,
+            p.customDays ? `${p.customDays}d` : `${p.months}m`,
+            p.paymentMode || 'Cash',
+            p.dueAmount ? `Rs. ${p.dueAmount}` : '-',
+            p.advancedAmount ? `Rs. ${p.advancedAmount}` : '-',
+            p.note || '-'
+          ]);
+
+        autoTable(doc, {
+          startY: startY4 + 2,
+          head: [['Date', 'Amount', 'Dur.', 'Mode', 'Due', 'Adv.', 'Note']],
+          body: tableBody,
+          theme: 'grid',
+          styles: { fontSize: 8, cellPadding: 2 },
+          headStyles: { fillColor: [60, 60, 60], textColor: [255, 255, 255] },
+          columnStyles: {
+            6: { cellWidth: 50 } // Note column wider
+          }
+        });
+      }
       
       doc.save(`ID_${member.fullName.replace(/\s+/g, '_')}.pdf`);
     } catch (error) {
@@ -436,10 +492,6 @@ const Members = () => {
                             <Label className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Target Exam</Label>
                             <Input value={editForm.targetExam} onChange={e => setEditForm({ ...editForm, targetExam: e.target.value })} className="h-8 bg-black/20 text-sm" />
                           </div>
-                          <div className="col-span-1">
-                            <Label className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Discount Amount (₹)</Label>
-                            <Input type="number" value={editForm.discountAmount} onChange={e => setEditForm({ ...editForm, discountAmount: e.target.value })} className="h-8 bg-black/20 text-sm" />
-                          </div>
                         </>
                       ) : (
                         <>
@@ -486,21 +538,54 @@ const Members = () => {
                         <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Joined</p>
                         <p className="font-medium text-sm text-white/90">{member.startDate ? format(parseISO(member.startDate), 'MMM d, yyyy') : 'N/A'}</p>
                       </div>
-                      <div className="col-span-1">
-                        <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Reg. Fee</p>
-                        <p className="font-medium text-sm text-white/90">{member.registrationFee ? `₹${member.registrationFee}` : 'N/A'}</p>
-                      </div>
-                      <div className="col-span-1">
-                        <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Fees Paid</p>
-                        <p className="font-medium text-sm text-white/90">₹{member.feesPaid || 0}</p>
-                      </div>
-                      <div className="col-span-1">
-                        <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Discount</p>
-                        <p className="font-medium text-sm text-white/90">{member.discountAmount ? `₹${member.discountAmount}` : 'N/A'}</p>
-                      </div>
                       <div className="col-span-2 border-t border-white/10 mt-2 pt-2">
                         <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Valid Till</p>
                         <p className="font-medium text-sm text-primary">{format(parseISO(member.expiryDate), 'MMM d, yyyy')}</p>
+                      </div>
+
+                      {/* Payment History Section */}
+                      <div className="col-span-2 mt-4 pt-4 border-t border-white/10">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-[10px] uppercase tracking-widest font-bold text-white/50">Payment History</h4>
+                          <div className="flex gap-3">
+                            {(() => {
+                              const memberPayments = payments.filter(p => p.memberId === member.id);
+                              const totalDue = memberPayments.reduce((sum, p) => sum + (p.dueAmount || 0), 0);
+                              const totalAdv = memberPayments.reduce((sum, p) => sum + (p.advancedAmount || 0), 0);
+                              return (
+                                <>
+                                  {totalDue > 0 && <span className="text-[10px] font-bold text-orange-400">Due: ₹{totalDue}</span>}
+                                  {totalAdv > 0 && <span className="text-[10px] font-bold text-yellow-400">Adv: ₹{totalAdv}</span>}
+                                </>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                        <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                          {payments.filter(p => p.memberId === member.id).length === 0 ? (
+                            <p className="text-[10px] text-white/30 italic text-center py-4">No payments recorded yet</p>
+                          ) : (
+                            payments
+                              .filter(p => p.memberId === member.id)
+                              .sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime())
+                              .map((p) => (
+                                <div key={p.id} className="bg-white/5 rounded-lg p-2.5 border border-white/5 flex flex-col gap-1">
+                                  <div className="flex justify-between items-start">
+                                    <span className="text-[10px] text-white/50">{format(parseISO(p.date), 'MMM d, yyyy')}</span>
+                                    <span className="text-[11px] font-bold text-white">₹{p.amount}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center text-[10px]">
+                                    <span className="text-white/70">{p.customDays ? `${p.customDays} Day(s)` : `${p.months} Month(s)`} • {p.paymentMode || 'Cash'}</span>
+                                    <div className="flex gap-2">
+                                      {(p.dueAmount || 0) > 0 && <span className="text-orange-400 font-bold">Due: ₹{p.dueAmount}</span>}
+                                      {(p.advancedAmount || 0) > 0 && <span className="text-yellow-400 font-bold">Adv: ₹{p.advancedAmount}</span>}
+                                    </div>
+                                  </div>
+                                  {p.note && <p className="text-[9px] text-white/40 italic truncate">{p.note}</p>}
+                                </div>
+                              ))
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

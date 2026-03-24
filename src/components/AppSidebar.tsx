@@ -5,7 +5,7 @@ import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter, useSidebar,
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, Users, UserPlus, IndianRupee, LogOut, BookOpen, Bell, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, Users, UserPlus, IndianRupee, LogOut, BookOpen, Bell, ShieldCheck, ReceiptText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const navItems = [
@@ -15,6 +15,8 @@ const navItems = [
   { title: 'Add Member', url: '/add-member', icon: UserPlus },
   { title: 'Payments', url: '/payments', icon: IndianRupee },
   { title: 'Reminders', url: '/reminders', icon: Bell },
+  { title: 'Staff', url: '/staff', icon: Users },
+  { title: 'Expenses', url: '/expenses', icon: ReceiptText },
 ];
 
 export function AppSidebar() {
