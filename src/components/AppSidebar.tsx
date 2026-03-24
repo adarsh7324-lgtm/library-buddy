@@ -53,8 +53,6 @@ export function AppSidebar() {
                       onClick={() => {
                         if (isMobile) {
                           setOpenMobile(false);
-                        } else {
-                          setOpen(false);
                         }
                       }}
                     >
