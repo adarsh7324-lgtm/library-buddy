@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useLibrary, Staff, StaffSalaryPayment } from '@/context/LibraryContext';
 import { Search, Trash2, User, Printer, Plus, CreditCard, Calendar, Phone, Briefcase, IndianRupee, Camera, Upload, MapPin, Hash, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -31,6 +31,57 @@ const StaffManagement = () => {
 
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+      streamRef.current = stream;
+      setIsCameraActive(true);
+      // Wait a tick for video element to mount
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      }, 100);
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      toast.error("Could not access camera. Please check permissions.");
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraActive(false);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current) {
+      const video = videoRef.current;
+      const canvas = document.createElement('canvas');
+      const MAX_WIDTH = 150;
+      const scale = MAX_WIDTH / video.videoWidth;
+      canvas.width = MAX_WIDTH;
+      canvas.height = video.videoHeight * scale;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const compressed = canvas.toDataURL('image/webp', 0.5);
+        setPhotoPreview(compressed);
+        setPhotoBase64(compressed);
+        stopCamera();
+      }
+    }
+  };
+
+  useEffect(() => {
+    return () => stopCamera();
+  }, []);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -61,6 +112,7 @@ const StaffManagement = () => {
   const clearPhoto = () => {
     setPhotoPreview(null);
     setPhotoBase64(null);
+    stopCamera();
   };
 
   const handleAddStaff = async () => {
@@ -111,7 +163,12 @@ const StaffManagement = () => {
           <h1 className="text-2xl md:text-3xl font-bold font-display text-white">Staff Management</h1>
           <p className="text-white/70 mt-1">Manage your library staff and salary payments</p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
+          setIsAddDialogOpen(open);
+          if (!open) {
+            stopCamera();
+          }
+        }}>
           <DialogTrigger asChild>
             <Button className="gap-2 shrink-0 bg-primary hover:bg-primary/90 text-white shadow-primary/20 shadow-lg">
               <Plus className="w-4 h-4" /> Add Staff
@@ -125,7 +182,14 @@ const StaffManagement = () => {
               {/* Photo Upload Widget */}
               <div className="flex flex-col items-center gap-4">
                 <div className="relative w-32 h-32 rounded-2xl bg-white/5 border-2 border-dashed border-white/10 flex items-center justify-center overflow-hidden group">
-                  {photoPreview ? (
+                  {isCameraActive ? (
+                    <video 
+                      ref={videoRef} 
+                      autoPlay 
+                      playsInline 
+                      className="w-full h-full object-cover rounded-2xl scale-x-[-1]" 
+                    />
+                  ) : photoPreview ? (
                     <>
                       <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
                       <button 
@@ -145,16 +209,15 @@ const StaffManagement = () => {
                 
                 <div className="flex gap-2 w-full justify-center">
                   <div className="relative">
-                    <Button type="button" variant="outline" size="sm" className="bg-white/5 border-white/10 text-white hover:bg-white/10 h-8 text-xs">
-                      <Camera className="w-3 h-3 mr-1.5" /> Use Camera
-                    </Button>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      capture="user"
-                      className="absolute inset-0 opacity-0 cursor-pointer" 
-                      onChange={handlePhotoChange}
-                    />
+                    {isCameraActive ? (
+                       <Button type="button" variant="default" size="sm" className="bg-primary hover:bg-primary/90 text-white h-8 text-xs font-bold" onClick={capturePhoto}>
+                         <Camera className="w-3 h-3 mr-1.5" /> Capture Now
+                       </Button>
+                    ) : (
+                       <Button type="button" variant="outline" size="sm" className="bg-white/5 border-white/10 text-white hover:bg-white/10 h-8 text-xs" onClick={startCamera}>
+                         <Camera className="w-3 h-3 mr-1.5" /> Use Camera
+                       </Button>
+                    )}
                   </div>
                   
                   <div className="relative">
