@@ -85,8 +85,9 @@ const StaffManagement = () => {
       });
       setPhotoPreview(null);
       setPhotoBase64(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      toast.error(error.message || 'Failed to add staff');
     }
   };
 
@@ -136,18 +137,39 @@ const StaffManagement = () => {
                     </>
                   ) : (
                     <div className="text-center p-4">
-                      <Camera className="w-8 h-8 text-white/20 mx-auto mb-2" />
-                      <p className="text-[10px] text-white/40 font-medium leading-tight">Click to Capture<br/>or Upload</p>
+                      <User className="w-8 h-8 text-white/20 mx-auto mb-2" />
+                      <p className="text-[10px] text-white/40 font-medium leading-tight">No Photo</p>
                     </div>
                   )}
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    capture="environment"
-                    className="absolute inset-0 opacity-0 cursor-pointer" 
-                    onChange={handlePhotoChange}
-                  />
                 </div>
+                
+                <div className="flex gap-2 w-full justify-center">
+                  <div className="relative">
+                    <Button type="button" variant="outline" size="sm" className="bg-white/5 border-white/10 text-white hover:bg-white/10 h-8 text-xs">
+                      <Camera className="w-3 h-3 mr-1.5" /> Use Camera
+                    </Button>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      capture="user"
+                      className="absolute inset-0 opacity-0 cursor-pointer" 
+                      onChange={handlePhotoChange}
+                    />
+                  </div>
+                  
+                  <div className="relative">
+                    <Button type="button" variant="outline" size="sm" className="bg-white/5 border-white/10 text-white hover:bg-white/10 h-8 text-xs">
+                      <Upload className="w-3 h-3 mr-1.5" /> Upload File
+                    </Button>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="absolute inset-0 opacity-0 cursor-pointer" 
+                      onChange={handlePhotoChange}
+                    />
+                  </div>
+                </div>
+                
                 {photoPreview && <p className="text-[10px] text-success font-medium uppercase tracking-wider">Photo Ready</p>}
               </div>
 

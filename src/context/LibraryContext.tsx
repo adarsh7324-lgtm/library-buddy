@@ -250,6 +250,14 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const ensureSession = useCallback(async () => {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error || !session) {
+      toast.error('Your session has expired. Please sign in again.');
+      throw new Error('Session expired');
+    }
+  }, []);
+
   const fetchMembers = useCallback(async () => {
     if (!activeLibraryId) return;
     const { data: membersData, error } = await supabase
@@ -706,6 +714,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const addStaff = useCallback(async (staffMember: Omit<Staff, 'id' | 'libraryId'>, photoBase64?: string) => {
     if (!activeLibraryId) throw new Error('No active library session');
     try {
+      await ensureSession();
       let finalPhotoUrl = null;
 
       if (photoBase64) {
@@ -749,12 +758,12 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
       setStaff(prev => [...prev, data as Staff]);
       return data.id;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding staff:', error);
-      toast.error('Failed to add staff');
+      toast.error(error.message || 'Failed to add staff');
       throw error;
     }
-  }, [activeLibraryId]);
+  }, [activeLibraryId, ensureSession]);
 
   const updateStaff = useCallback(async (id: string, data: Partial<Staff>) => {
     try {
@@ -783,6 +792,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const addStaffSalaryPayment = useCallback(async (payment: Omit<StaffSalaryPayment, 'id' | 'libraryId'>) => {
     if (!activeLibraryId) throw new Error('No active library session');
     try {
+      await ensureSession();
       const { data, error } = await supabase.from('staff_salary_payments').insert([{
         ...payment,
         libraryId: activeLibraryId
@@ -790,12 +800,12 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
       setStaffSalaryPayments(prev => [...prev, data as StaffSalaryPayment]);
       toast.success('Salary payment recorded');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding staff salary payment:', error);
-      toast.error('Failed to add salary payment');
+      toast.error(error.message || 'Failed to add salary payment');
       throw error;
     }
-  }, [activeLibraryId]);
+  }, [activeLibraryId, ensureSession]);
 
   const updateStaffSalaryPayment = useCallback(async (id: string, updates: Partial<StaffSalaryPayment>) => {
     if (!activeLibraryId) throw new Error('No active library session');
@@ -830,6 +840,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const addExpense = useCallback(async (expense: Omit<Expense, 'id' | 'libraryId'>) => {
     if (!activeLibraryId) throw new Error('No active library session');
     try {
+      await ensureSession();
       const { data, error } = await supabase.from('expenses').insert([{
         ...expense,
         libraryId: activeLibraryId
@@ -837,12 +848,12 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
       if (data) setExpenses(prev => [...prev, data as Expense]);
       toast.success('Expense recorded');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding expense:', error);
-      toast.error('Failed to add expense');
+      toast.error(error.message || 'Failed to add expense');
       throw error;
     }
-  }, [activeLibraryId]);
+  }, [activeLibraryId, ensureSession]);
 
   const deleteExpense = useCallback(async (id: string) => {
     try {

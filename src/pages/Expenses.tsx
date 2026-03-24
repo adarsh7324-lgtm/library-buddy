@@ -75,8 +75,9 @@ const Expenses = () => {
         note: ''
       });
       setSelectedStaffId('');
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      toast.error(error.message || 'Failed to add expense');
     }
   };
 
