@@ -208,16 +208,22 @@ const Members = () => {
 
   const today = new Date();
 
-  const filtered = members.filter(m => {
-    const matchSearch = m.fullName.toLowerCase().includes(search.toLowerCase()) || m.phone.includes(search);
-    if (!matchSearch) return false;
-    if (filter === 'Active') return m.status === 'Active';
-    if (filter === 'Expired') return m.status === 'Expired';
-    if (filter === 'Expiring Soon') {
-      return m.status === 'Expiring Soon';
-    }
-    return true;
-  });
+  const filtered = members
+    .filter(m => {
+      const matchSearch = m.fullName.toLowerCase().includes(search.toLowerCase()) || m.phone.includes(search);
+      if (!matchSearch) return false;
+      if (filter === 'Active') return m.status === 'Active';
+      if (filter === 'Expired') return m.status === 'Expired';
+      if (filter === 'Expiring Soon') {
+        return m.status === 'Expiring Soon';
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const dateA = a.startDate ? parseISO(a.startDate).getTime() : 0;
+      const dateB = b.startDate ? parseISO(b.startDate).getTime() : 0;
+      return dateB - dateA;
+    });
 
   const handleDelete = async (id: string) => {
     try {

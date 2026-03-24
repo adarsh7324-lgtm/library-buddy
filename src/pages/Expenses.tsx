@@ -164,6 +164,17 @@ const Expenses = () => {
 
   const selectedCatInfo = categories.find(c => c.name === selectedCategory);
 
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const thisMonthStr = format(new Date(), 'yyyy-MM');
+
+  const totalToday = expenses
+    .filter(e => e.date === todayStr)
+    .reduce((sum, e) => sum + Number(e.amount), 0);
+
+  const totalThisMonth = expenses
+    .filter(e => e.date.startsWith(thisMonthStr))
+    .reduce((sum, e) => sum + Number(e.amount), 0);
+
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -177,6 +188,35 @@ const Expenses = () => {
         >
           <Printer className="w-4 h-4 text-primary" /> Print Report
         </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <motion.div 
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="glass-panel p-6 rounded-2xl border border-white/5 flex items-center gap-4"
+        >
+          <div className="p-3 rounded-xl bg-primary/10 text-primary">
+            <IndianRupee className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-white/50">Total Expenses Today</p>
+            <p className="text-2xl font-bold text-white font-display">₹{totalToday.toLocaleString()}</p>
+          </div>
+        </motion.div>
+        <motion.div 
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="glass-panel p-6 rounded-2xl border border-white/5 flex items-center gap-4"
+        >
+          <div className="p-3 rounded-xl bg-emerald-400/10 text-emerald-400">
+            <Landmark className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-white/50">Total Expenses This Month</p>
+            <p className="text-2xl font-bold text-white font-display">₹{totalThisMonth.toLocaleString()}</p>
+          </div>
+        </motion.div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
