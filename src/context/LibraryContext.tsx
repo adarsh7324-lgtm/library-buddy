@@ -569,8 +569,9 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const deleteMember = useCallback(async (id: string) => {
+    if (!activeLibraryId) throw new Error('No active library session');
     try {
-      const { error } = await supabase.from('members').delete().eq('id', id);
+      const { error } = await supabase.from('members').delete().eq('id', id).eq('libraryId', activeLibraryId);
       if (error) throw error;
       setMembers(prev => prev.filter(m => m.id !== id));
     } catch (error) {
@@ -578,7 +579,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       toast.error('Failed to delete member');
       throw error;
     }
-  }, []);
+  }, [activeLibraryId]);
 
   const upgradeMember = useCallback(async (id: string, additionalMonths: number, additionalDays?: number) => {
     try {
@@ -628,6 +629,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   }, [activeLibraryId]);
 
   const deletePayment = useCallback(async (id: string) => {
+    if (!activeLibraryId) throw new Error('No active library session');
     try {
       const paymentToDel = payments.find(p => p.id === id);
       if (!paymentToDel) throw new Error('Payment not found');
@@ -642,7 +644,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
       if (insertError) throw insertError;
 
-      const { error: deleteError } = await supabase.from('payments').delete().eq('id', id);
+      const { error: deleteError } = await supabase.from('payments').delete().eq('id', id).eq('libraryId', activeLibraryId);
       if (deleteError) throw deleteError;
 
       setPayments(prev => prev.filter(p => p.id !== id));
@@ -696,15 +698,22 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
   const clearDeletedPayments = useCallback(async (password: string) => {
     try {
-      if (password !== 'admin123') {
-        toast.error('Invalid password');
-        throw new Error('Invalid password');
-      }
       if (!activeLibraryId) return;
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session) {
+      if (sessionError || !session || !session.user.email) {
         toast.error('You must be logged in to perform this action');
         throw new Error('Not authenticated');
+      }
+
+      // Re-authenticate using Supabase to verify password
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: session.user.email,
+        password: password
+      });
+
+      if (signInError) {
+        toast.error('Invalid password');
+        throw new Error('Invalid password');
       }
 
       const { error } = await supabase.from('deleted_payments').delete().eq('libraryId', activeLibraryId);
