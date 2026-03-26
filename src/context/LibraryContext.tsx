@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
-import { addMonths, addDays, format, differenceInDays } from 'date-fns';
+import { addMonths, addDays, subMonths, subDays, format, differenceInDays } from 'date-fns';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 
@@ -647,14 +647,50 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       if (insertedDeletedPayment) {
         setDeletedPayments(prev => [insertedDeletedPayment as DeletedPayment, ...prev]);
       }
-      
-      toast.success('Payment deleted');
+
+      // Reverse the duration added by this payment on the member's profile
+      const member = members.find(m => m.id === paymentToDel.memberId);
+      if (member && (paymentToDel.months > 0 || (paymentToDel.customDays ?? 0) > 0)) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        let newExpiry = new Date(member.expiryDate);
+        if (paymentToDel.customDays && paymentToDel.customDays > 0) {
+          newExpiry = subDays(newExpiry, paymentToDel.customDays);
+        } else if (paymentToDel.months > 0) {
+          newExpiry = subMonths(newExpiry, paymentToDel.months);
+        }
+
+        const newExpiryFormatted = format(newExpiry, 'yyyy-MM-dd');
+        const daysDiff = differenceInDays(newExpiry, today);
+        const newStatus: Member['status'] = newExpiry < today ? 'Expired' : daysDiff <= 7 ? 'Expiring Soon' : 'Active';
+
+        const newMonths = Math.max(0, member.months - (paymentToDel.months ?? 0));
+        const newCustomDays = Math.max(0, (member.customDays ?? 0) - (paymentToDel.customDays ?? 0));
+
+        const memberUpdate: Partial<Member> = {
+          expiryDate: newExpiryFormatted,
+          months: newMonths,
+          status: newStatus,
+          ...(member.customDays !== undefined ? { customDays: newCustomDays } : {}),
+        };
+
+        const { error: memberUpdateError } = await supabase.from('members').update(memberUpdate).eq('id', member.id);
+        if (memberUpdateError) {
+          console.error('Failed to reverse member duration after payment delete:', memberUpdateError);
+          toast.error('Payment deleted, but failed to update member duration.');
+        } else {
+          setMembers(prev => prev.map(m => m.id === member.id ? { ...m, ...memberUpdate } : m));
+        }
+      }
+
+      toast.success('Payment deleted and member duration updated');
     } catch (error) {
       console.error('Error deleting payment:', error);
       toast.error('Failed to delete payment');
       throw error;
     }
-  }, [payments]);
+  }, [payments, members]);
 
   const clearDeletedPayments = useCallback(async (_password: string) => {
     try {

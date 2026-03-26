@@ -211,7 +211,7 @@ const Members = () => {
   const sortedAllMembers = [...members].sort((a, b) => {
     const timeA = (a as any).created_at ? new Date((a as any).created_at).getTime() : ((a as any).createdAt ? new Date((a as any).createdAt).getTime() : (a.startDate ? parseISO(a.startDate).getTime() : 0));
     const timeB = (b as any).created_at ? new Date((b as any).created_at).getTime() : ((b as any).createdAt ? new Date((b as any).createdAt).getTime() : (b.startDate ? parseISO(b.startDate).getTime() : 0));
-    return timeA - timeB; // ascending (oldest to newest)
+    return timeB - timeA; // descending (newest to oldest)
   });
 
   const filtered = sortedAllMembers.filter(m => {
