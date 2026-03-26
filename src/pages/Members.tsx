@@ -44,8 +44,8 @@ const Members = () => {
       doc.setDrawColor(0, 0, 0);
       doc.setLineWidth(0.3);
 
-      let startY = 25;
-      let rowH = 10;
+      const startY = 25;
+      const rowH = 10;
       
       // Block 1 Box
       doc.rect(10, startY, 190, 50); 
@@ -109,17 +109,17 @@ const Members = () => {
       }
 
       // Block 2: Library & Payment Details
-      let startY2 = startY + 50 + 5; // 5mm gap
+      const startY2 = startY + 50 + 5; // 5mm gap
       doc.setFillColor(240, 240, 240);
       doc.rect(10, startY2, 190, 8, 'FD'); // Fill and Draw
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
       doc.text('Library & Payment Details', 105, startY2 + 5.5, { align: 'center' });
       
-      let startY3 = startY2 + 8;
+      const startY3 = startY2 + 8;
       doc.rect(10, startY3, 190, 30); // 3 rows
       
-      let c1 = 10, c2 = 57.5, c3 = 105, c4 = 152.5;
+      const c1 = 10, c2 = 57.5, c3 = 105, c4 = 152.5;
       doc.line(c2, startY3, c2, startY3 + 30);
       doc.line(c3, startY3, c3, startY3 + 30);
       doc.line(c4, startY3, c4, startY3 + 30);
@@ -127,7 +127,7 @@ const Members = () => {
       doc.line(10, startY3 + 10, 200, startY3 + 10);
       doc.line(10, startY3 + 20, 200, startY3 + 20);
       
-      let wD = 47.5;
+      const wD = 47.5;
       drawTextInCell('Seat Number:', c1, startY3, wD, rowH, true);
       drawTextInCell(member.seatNumber || '-', c2, startY3, wD, rowH);
       drawTextInCell('Shift:', c3, startY3, wD, rowH, true);
@@ -208,26 +208,26 @@ const Members = () => {
 
   const today = new Date();
 
-  const filtered = members
-    .filter(m => {
-      const matchSearch = m.fullName.toLowerCase().includes(search.toLowerCase()) || m.phone.includes(search);
-      if (!matchSearch) return false;
-      if (filter === 'Active') return m.status === 'Active';
-      if (filter === 'Expired') return m.status === 'Expired';
-      if (filter === 'Expiring Soon') return m.status === 'Expiring Soon';
-      
-      if (filter === 'Morning') return m.shift === 'Morning';
-      if (filter === 'Afternoon') return m.shift === 'Afternoon';
-      if (filter === 'Evening') return m.shift === 'Evening';
-      if (filter === 'Night') return m.shift === 'Night';
-      if (filter === 'Full Day') return m.shift === 'Full';
-      return true;
-    })
-    .sort((a, b) => {
-      const dateA = a.startDate ? parseISO(a.startDate).getTime() : 0;
-      const dateB = b.startDate ? parseISO(b.startDate).getTime() : 0;
-      return dateB - dateA;
-    });
+  const sortedAllMembers = [...members].sort((a, b) => {
+    const timeA = (a as any).created_at ? new Date((a as any).created_at).getTime() : ((a as any).createdAt ? new Date((a as any).createdAt).getTime() : (a.startDate ? parseISO(a.startDate).getTime() : 0));
+    const timeB = (b as any).created_at ? new Date((b as any).created_at).getTime() : ((b as any).createdAt ? new Date((b as any).createdAt).getTime() : (b.startDate ? parseISO(b.startDate).getTime() : 0));
+    return timeA - timeB; // ascending (oldest to newest)
+  });
+
+  const filtered = sortedAllMembers.filter(m => {
+    const matchSearch = m.fullName.toLowerCase().includes(search.toLowerCase()) || m.phone.includes(search);
+    if (!matchSearch) return false;
+    if (filter === 'Active') return m.status === 'Active';
+    if (filter === 'Expired') return m.status === 'Expired';
+    if (filter === 'Expiring Soon') return m.status === 'Expiring Soon';
+    
+    if (filter === 'Morning') return m.shift === 'Morning';
+    if (filter === 'Afternoon') return m.shift === 'Afternoon';
+    if (filter === 'Evening') return m.shift === 'Evening';
+    if (filter === 'Night') return m.shift === 'Night';
+    if (filter === 'Full Day') return m.shift === 'Full';
+    return true;
+  });
 
   const handleDelete = async (id: string) => {
     try {
@@ -304,6 +304,7 @@ const Members = () => {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 bg-black/20">
+                <th className="text-left py-4 px-5 font-medium text-white/70">#</th>
                 <th className="text-left py-4 px-5 font-medium text-white/70">Name</th>
                 <th className="text-left py-4 px-5 font-medium text-white/70">Phone</th>
                 <th className="text-left py-4 px-5 font-medium text-white/70">Seat</th>
@@ -316,8 +317,11 @@ const Members = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((member, i) => (
+              {filtered.map((member, i) => {
+                const globalIndex = sortedAllMembers.findIndex(x => x.id === member.id) + 1;
+                return (
                 <motion.tr key={member.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                  <td className="py-3 px-5 text-white/70">{globalIndex}</td>
                   <td className="py-3 px-5 font-medium text-white">{member.fullName}</td>
                   <td className="py-3 px-5 text-white/70">{member.countryCode} {member.phone}</td>
                   <td className="py-3 px-5 text-white/70">{member.seatNumber || '-'}</td>
@@ -347,7 +351,7 @@ const Members = () => {
                     </div>
                   </td>
                 </motion.tr>
-              ))}
+              );})}
             </tbody>
           </table>
         </div>
@@ -356,11 +360,13 @@ const Members = () => {
 
       {/* Mobile Cards */}
       <div className="md:hidden space-y-3">
-        {filtered.map((member, i) => (
+        {filtered.map((member, i) => {
+          const globalIndex = sortedAllMembers.findIndex(x => x.id === member.id) + 1;
+          return (
           <motion.div key={member.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="stat-card">
             <div className="flex items-start justify-between mb-2">
               <div>
-                <p className="font-medium text-white">{member.fullName}</p>
+                <p className="font-medium text-white"><span className="text-white/50 mr-2">#{globalIndex}</span>{member.fullName}</p>
                 <p className="text-xs text-white/60">{member.countryCode} {member.phone} {member.seatNumber ? `• Seat: ${member.seatNumber}` : ''} {member.shift ? `• Shift: ${member.shift}` : ''} {member.startTime ? `• Time: ${member.startTime} - ${member.endTime}` : ''}</p>
               </div>
               <span className={`text-xs px-2.5 py-1 rounded-full font-medium border ${member.status === 'Active' ? 'bg-success/80 text-success-foreground border-success/80' :
@@ -379,7 +385,7 @@ const Members = () => {
               </a>
             </div>
           </motion.div>
-        ))}
+        );})}
         {filtered.length === 0 && <p className="text-center text-white/50 py-8">No members found</p>}
       </div>
 

@@ -494,6 +494,24 @@ const Payments = () => {
               </Popover>
             </div>
 
+            <div>
+              <Label className="text-white/90 mb-1.5 block">Duration *</Label>
+              <Select value={form.months} onValueChange={v => setForm(f => ({ ...f, months: v, customDays: '' }))}>
+                <SelectTrigger className="bg-black/20 border-white/10 text-white focus:ring-white/20"><SelectValue placeholder="Select months" /></SelectTrigger>
+                <SelectContent className="bg-black/80 backdrop-blur-xl border-white/10 text-white">
+                  {[0, 1, 2, 3, 6, 12].map(m => <SelectItem key={m} value={String(m)} className="focus:bg-white/10 focus:text-white cursor-pointer">{m} month{m !== 1 ? 's' : ''}</SelectItem>)}
+                  <SelectItem value="custom" className="focus:bg-white/10 focus:text-white cursor-pointer xl:border-t xl:border-white/10 xl:mt-1 xl:pt-1">Custom (Days)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {form.months === 'custom' && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
+                <Label className="text-white/90 mb-1.5 block">Number of Days *</Label>
+                <Input type="number" min="1" value={form.customDays} onChange={e => setForm(f => ({ ...f, customDays: e.target.value }))} placeholder="e.g. 15" className="bg-black/20 border-white/10 text-white placeholder:text-white/30" />
+              </motion.div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <Label className="text-white/90 mb-1.5 block">Registration Fee (₹)</Label>
@@ -541,30 +559,6 @@ const Payments = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label className="text-white/90 mb-1.5 block">Duration *</Label>
-                <Select value={form.months} onValueChange={v => setForm(f => ({ ...f, months: v, customDays: '' }))}>
-                  <SelectTrigger className="bg-black/20 border-white/10 text-white focus:ring-white/20"><SelectValue placeholder="Select months" /></SelectTrigger>
-                  <SelectContent className="bg-black/80 backdrop-blur-xl border-white/10 text-white">
-                    {[0, 1, 2, 3, 6, 12].map(m => <SelectItem key={m} value={String(m)} className="focus:bg-white/10 focus:text-white cursor-pointer">{m} month{m !== 1 ? 's' : ''}</SelectItem>)}
-                    <SelectItem value="custom" className="focus:bg-white/10 focus:text-white cursor-pointer xl:border-t xl:border-white/10 xl:mt-1 xl:pt-1">Custom (Days)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-white/90 mb-1.5 block">Total Payment Amount (₹) *</Label>
-                <Input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="E.g. 500" className="bg-black/20 border-white/10 text-white placeholder:text-white/30 font-bold text-lg" />
-              </div>
-            </div>
-
-            {form.months === 'custom' && (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
-                <Label className="text-white/90 mb-1.5 block">Number of Days *</Label>
-                <Input type="number" min="1" value={form.customDays} onChange={e => setForm(f => ({ ...f, customDays: e.target.value }))} placeholder="e.g. 15" className="bg-black/20 border-white/10 text-white placeholder:text-white/30" />
-              </motion.div>
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
                 <Label className="text-white/90 mb-1.5 block">Payment Type</Label>
                 <Select value={form.amountType} onValueChange={(v: 'Regular' | 'Due' | 'Advanced') => setForm(f => ({ ...f, amountType: v, typeAmount: '' }))}>
                   <SelectTrigger className="bg-black/20 border-white/10 text-white focus:ring-white/20"><SelectValue /></SelectTrigger>
@@ -575,13 +569,18 @@ const Payments = () => {
                   </SelectContent>
                 </Select>
               </div>
-              {form.amountType !== 'Regular' && (
-                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
-                  <Label className="text-white/90 mb-1.5 block">{form.amountType} Amount (₹) *</Label>
-                  <Input type="number" min="1" value={form.typeAmount} onChange={e => setForm(f => ({ ...f, typeAmount: e.target.value }))} placeholder={`Amount to track`} className="bg-black/20 border-white/10 text-white placeholder:text-white/30" />
-                </motion.div>
-              )}
+              <div>
+                <Label className="text-white/90 mb-1.5 block">Total Payment Amount (₹) *</Label>
+                <Input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="E.g. 500" className="bg-black/20 border-white/10 text-white placeholder:text-white/30 font-bold text-lg" />
+              </div>
             </div>
+
+            {form.amountType !== 'Regular' && (
+              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+                <Label className="text-white/90 mb-1.5 block">{form.amountType} Amount (₹) *</Label>
+                <Input type="number" min="1" value={form.typeAmount} onChange={e => setForm(f => ({ ...f, typeAmount: e.target.value }))} placeholder={`Amount to track`} className="bg-black/20 border-white/10 text-white placeholder:text-white/30" />
+              </motion.div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div>
