@@ -9,14 +9,9 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { addMonths, addDays, format } from 'date-fns';
 import { toast } from 'sonner';
-import { UserPlus, Camera, RefreshCcw, X, Video } from 'lucide-react';
+import { UserPlus, Camera, RefreshCcw, X, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
-
-const timeToMinutes = (time?: string) => {
-  if (!time) return 0;
-  const [hours, minutes] = time.split(':').map(Number);
-  return hours * 60 + minutes;
-};
+import { timeToMinutes } from '@/lib/utils';
 
 const AddMember = () => {
   const { addMember, settings, members } = useLibrary();
@@ -29,6 +24,8 @@ const AddMember = () => {
 
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [phoneError, setPhoneError] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -151,10 +148,22 @@ const AddMember = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setPhoneError('');
+
     if (!form.fullName || !form.phone || !form.startDate) {
       toast.error('Please fill all required fields');
       return;
     }
+
+    // Phone Validation
+    const phoneRegex = /^[0-9]{7,15}$/;
+    if (!phoneRegex.test(form.phone.trim())) {
+      setPhoneError('Phone number must contain 7-15 digits only');
+      toast.error('Invalid phone number format');
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
       const memberData: Omit<Member, 'id' | 'libraryId'> = {
         fullName: form.fullName,
@@ -185,7 +194,9 @@ const AddMember = () => {
 
       navigate('/members');
     } catch (error) {
-      toast.error('Failed to add member');
+      // Error handling is managed by context / toast
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -271,7 +282,16 @@ const AddMember = () => {
             </div>
             <div className="space-y-1.5">
               <Label className="text-white/90">Phone Number *</Label>
-              <Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="9876543210" className="bg-black/20 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-white/20" />
+              <Input 
+                value={form.phone} 
+                onChange={e => {
+                   setForm(f => ({ ...f, phone: e.target.value.replace(/[^0-9]/g, '') }));
+                   setPhoneError('');
+                }} 
+                placeholder="9876543210" 
+                className={`bg-black/20 text-white placeholder:text-white/30 focus-visible:ring-white/20 ${phoneError ? 'border-destructive' : 'border-white/10'}`} 
+              />
+              {phoneError && <p className="text-xs text-destructive mt-1">{phoneError}</p>}
             </div>
             <div className="sm:col-span-2 space-y-1.5">
               <Label className="text-white/90">Address</Label>
@@ -344,8 +364,9 @@ const AddMember = () => {
             </div>
           </div>
           <div className="pt-4 border-t border-white/10">
-            <Button type="submit" className="w-full sm:w-auto gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20">
-              <UserPlus className="w-4 h-4" /> Add Member
+            <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20">
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />} 
+              {isSubmitting ? 'Registering...' : 'Add Member'}
             </Button>
           </div>
         </form>

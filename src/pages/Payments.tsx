@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { useEffect } from 'react';
 
 const Payments = () => {
   const { members, payments, deletedPayments, addPayment, updatePayment, upgradeMember, deletePayment, clearDeletedPayments, updateMember } = useLibrary();
@@ -43,17 +45,28 @@ const Payments = () => {
   const [pdfStartDate, setPdfStartDate] = useState('');
   const [pdfEndDate, setPdfEndDate] = useState('');
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [paymentToDelete, setPaymentToDelete] = useState<string | null>(null);
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, viewDeleted]);
+
   const handleSave = async () => {
     if (!form.memberId || !form.amount || !form.months) {
       toast.error('Please fill all required fields');
       return;
     }
-    try {
-      if (form.months === 'custom' && !form.customDays) {
-        toast.error('Please specify custom days count');
-        return;
-      }
+    if (form.months === 'custom' && !form.customDays) {
+      toast.error('Please specify custom days count');
+      return;
+    }
 
+    setIsSubmitting(true);
+    try {
       const paymentDate = format(new Date(), 'yyyy-MM-dd');
       
       // Build a clean, readable note
@@ -138,7 +151,9 @@ const Payments = () => {
       setDialogOpen(false);
       setForm({ memberId: '', amount: '', months: '', customDays: '', note: '', paymentMode: 'Cash', amountType: 'Regular', typeAmount: '', clearOutstanding: false, purpose: 'Renewal', registrationFee: '', monthlyFee: '', discountAmount: '' });
     } catch (error) {
-      toast.error('Failed to register payment');
+      // Handled in context
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -152,9 +167,14 @@ const Payments = () => {
     return member.fullName.toLowerCase().includes(searchLower) || member.phone.includes(searchTerm);
   });
 
+  const totalPages = Math.ceil(displayedPayments.length / itemsPerPage);
+  const paginatedPayments = displayedPayments.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
   const handleDeletePayment = async (id: string) => {
-    if (confirm('Are you sure you want to delete this payment?')) {
+    try {
       await deletePayment(id);
+    } catch (error) {
+      // Handled in context
     }
   };
 
@@ -341,7 +361,7 @@ const Payments = () => {
               </tr>
             </thead>
             <tbody>
-              {displayedPayments.map((payment, i) => {
+              {paginatedPayments.map((payment, i) => {
                 const member = members.find(m => m.id === payment.memberId);
                 const isDue = (payment.dueAmount || 0) > 0;
                 const isAdv = (payment.advancedAmount || 0) > 0;
@@ -368,7 +388,7 @@ const Payments = () => {
                     <td className="py-3 px-5 text-white/60">{payment.note || '—'}</td>
                     {!viewDeleted && (
                       <td className="py-3 px-5 text-right">
-                        <Button variant="ghost" size="icon" onClick={() => handleDeletePayment(payment.id)} className="text-destructive hover:bg-destructive/20 hover:text-destructive">
+                        <Button variant="ghost" size="icon" onClick={() => setPaymentToDelete(payment.id)} className="text-destructive hover:bg-destructive/20 hover:text-destructive">
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </td>
@@ -384,7 +404,7 @@ const Payments = () => {
 
       {/* Mobile Cards */}
       <div className="md:hidden space-y-3">
-        {displayedPayments.map((payment, i) => {
+        {paginatedPayments.map((payment, i) => {
           const member = members.find(m => m.id === payment.memberId);
           const isDue = (payment.dueAmount || 0) > 0;
           const isAdv = (payment.advancedAmount || 0) > 0;
@@ -404,7 +424,7 @@ const Payments = () => {
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-bold text-white">₹{payment.amount.toLocaleString()}</span>
                   {!viewDeleted && (
-                    <Button variant="ghost" size="icon" onClick={() => handleDeletePayment(payment.id)} className="h-7 w-7 text-destructive hover:bg-destructive/20 hover:text-destructive bg-white/5">
+                    <Button variant="ghost" size="icon" onClick={() => setPaymentToDelete(payment.id)} className="h-7 w-7 text-destructive hover:bg-destructive/20 hover:text-destructive bg-white/5">
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   )}
@@ -423,6 +443,31 @@ const Payments = () => {
         })}
         {displayedPayments.length === 0 && <p className="text-center text-white/50 py-8 glass-panel rounded-2xl">No payments found</p>}
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex justify-between items-center bg-black/20 border border-white/10 rounded-2xl p-4 mt-6">
+          <Button 
+            variant="outline" 
+            className="border-white/10 text-white bg-white/5 disabled:opacity-50"
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+          >
+            Previous
+          </Button>
+          <span className="text-white/70 text-sm">
+            Page {currentPage} of {totalPages}
+          </span>
+          <Button 
+            variant="outline" 
+            className="border-white/10 text-white bg-white/5 disabled:opacity-50"
+            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+          >
+            Next
+          </Button>
+        </div>
+      )}
 
       {/* Register Payment Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -600,8 +645,10 @@ const Payments = () => {
             </div>
           </div>
           <DialogFooter className="mt-8 gap-3 sm:gap-0">
-            <Button variant="outline" onClick={() => setDialogOpen(false)} className="bg-white/5 border-white/10 text-white hover:bg-white/10 h-10 px-6">Cancel</Button>
-            <Button onClick={handleSave} className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 h-10 px-8 font-bold">Confirm & Register</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={isSubmitting} className="bg-white/5 border-white/10 text-white hover:bg-white/10 h-10 px-6">Cancel</Button>
+            <Button onClick={handleSave} disabled={isSubmitting} className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 h-10 px-8 font-bold">
+              {isSubmitting ? 'Registering...' : 'Confirm & Register'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -647,6 +694,20 @@ const Payments = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!paymentToDelete}
+        onOpenChange={(open) => !open && setPaymentToDelete(null)}
+        title="Delete Payment?"
+        description="Are you sure you want to delete this payment record? This action cannot be undone."
+        onConfirm={() => {
+          if (paymentToDelete) {
+            handleDeletePayment(paymentToDelete);
+            setPaymentToDelete(null);
+          }
+        }}
+        destructive
+      />
     </div>
   );
 };

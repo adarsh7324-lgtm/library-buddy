@@ -422,38 +422,40 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     ]).finally(() => setLoading(false));
 
     // Supabase Realtime Subscriptions
+    const filterStr = `libraryId=eq.${activeLibraryId}`;
+    
     const membersChannel = supabase.channel('members_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'members', filter: filterStr }, () => {
         fetchMembers();
       }).subscribe();
 
     const paymentsChannel = supabase.channel('payments_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: filterStr }, () => {
         fetchPayments();
       }).subscribe();
 
     const deletedPaymentsChannel = supabase.channel('deleted_payments_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'deleted_payments' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deleted_payments', filter: filterStr }, () => {
         fetchDeletedPayments();
       }).subscribe();
 
     const settingsChannel = supabase.channel('settings_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings', filter: filterStr }, () => {
         fetchSettings();
       }).subscribe();
 
     const staffChannel = supabase.channel('staff_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff', filter: filterStr }, () => {
         fetchStaff();
       }).subscribe();
 
     const staffPaymentsChannel = supabase.channel('staff_salary_payments_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_salary_payments' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_salary_payments', filter: filterStr }, () => {
         fetchStaffSalaryPayments();
       }).subscribe();
 
     const expensesChannel = supabase.channel('expenses_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses', filter: filterStr }, () => {
         fetchExpenses();
       }).subscribe();
 
@@ -692,8 +694,12 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     }
   }, [payments, members]);
 
-  const clearDeletedPayments = useCallback(async (_password: string) => {
+  const clearDeletedPayments = useCallback(async (password: string) => {
     try {
+      if (password !== 'admin123') {
+        toast.error('Invalid password');
+        throw new Error('Invalid password');
+      }
       if (!activeLibraryId) return;
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError || !session) {
@@ -815,7 +821,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
   const deleteStaff = useCallback(async (id: string) => {
     try {
-      const { error } = await supabase.from('staff').delete().eq('id', id);
+      if (!activeLibraryId) throw new Error('No active library session');
+      const { error } = await supabase.from('staff').delete().eq('id', id).eq('libraryId', activeLibraryId);
       if (error) throw error;
       setStaff(prev => prev.filter(s => s.id !== id));
     } catch (error) {
@@ -862,7 +869,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
   const deleteStaffSalaryPayment = useCallback(async (id: string) => {
     try {
-      const { error } = await supabase.from('staff_salary_payments').delete().eq('id', id);
+      if (!activeLibraryId) throw new Error('No active library session');
+      const { error } = await supabase.from('staff_salary_payments').delete().eq('id', id).eq('libraryId', activeLibraryId);
       if (error) throw error;
       setStaffSalaryPayments(prev => prev.filter(p => p.id !== id));
       toast.success('Salary payment deleted');
@@ -893,7 +901,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
   const deleteExpense = useCallback(async (id: string) => {
     try {
-      const { error } = await supabase.from('expenses').delete().eq('id', id);
+      if (!activeLibraryId) throw new Error('No active library session');
+      const { error } = await supabase.from('expenses').delete().eq('id', id).eq('libraryId', activeLibraryId);
       if (error) throw error;
       setExpenses(prev => prev.filter(e => e.id !== id));
       toast.success('Expense deleted');

@@ -1,7 +1,6 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { LibraryProvider, useLibrary } from "@/context/LibraryContext";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -17,8 +16,6 @@ import StaffManagement from "./pages/StaffManagement";
 import Expenses from "./pages/Expenses";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import { ThemeProvider } from "./components/theme-provider";
-
-const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isSuperAdmin, activeLibraryId, isAuthChecking } = useLibrary();
@@ -61,19 +58,17 @@ const AppRoutes = () => (
 );
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
+  <TooltipProvider>
+    <LibraryProvider>
       <Toaster />
       <Sonner />
-      <LibraryProvider>
-        <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </ThemeProvider>
-      </LibraryProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
+      <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </ThemeProvider>
+    </LibraryProvider>
+  </TooltipProvider>
 );
 
 export default App;

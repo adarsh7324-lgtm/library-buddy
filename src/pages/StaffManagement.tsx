@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 const StaffManagement = () => {
   const { staff, staffSalaryPayments, addStaff, updateStaff, deleteStaff, addStaffSalaryPayment, deleteStaffSalaryPayment } = useLibrary();
@@ -17,6 +18,11 @@ const StaffManagement = () => {
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [phoneError, setPhoneError] = useState('');
+  const [staffToDelete, setStaffToDelete] = useState<string | null>(null);
+  const [paymentToDelete, setPaymentToDelete] = useState<string | null>(null);
+
   const [newStaff, setNewStaff] = useState<Omit<Staff, 'id' | 'libraryId'>>({
     fullName: '',
     role: 'Librarian',
@@ -120,6 +126,15 @@ const StaffManagement = () => {
       toast.error('Please fill all required fields');
       return;
     }
+
+    if (!/^\d{7,15}$/.test(newStaff.phone)) {
+      setPhoneError('Phone number must be between 7 and 15 digits');
+      return;
+    } else {
+      setPhoneError('');
+    }
+
+    setIsSubmitting(true);
     try {
       await addStaff(newStaff, photoBase64 || undefined);
       toast.success('Staff member added successfully');
@@ -140,6 +155,8 @@ const StaffManagement = () => {
     } catch (error: any) {
       console.error(error);
       toast.error(error.message || 'Failed to add staff');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -270,8 +287,14 @@ const StaffManagement = () => {
                 <Label htmlFor="phone">Phone Number</Label>
                 <div className="flex gap-2">
                   <Input className="w-16 bg-white/5 border-white/10" value={newStaff.countryCode} onChange={e => setNewStaff({...newStaff, countryCode: e.target.value})} />
-                  <Input id="phone" placeholder="Enter phone number" className="flex-1 bg-white/5 border-white/10" value={newStaff.phone} onChange={e => setNewStaff({...newStaff, phone: e.target.value})} />
+                  <Input id="phone" placeholder="Enter phone number" className="flex-1 bg-white/5 border-white/10" value={newStaff.phone} onChange={e => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    setNewStaff({...newStaff, phone: val});
+                    if (val && !/^\d{7,15}$/.test(val)) setPhoneError('Must be 7-15 digits');
+                    else setPhoneError('');
+                  }} />
                 </div>
+                {phoneError && <p className="text-xs text-destructive font-medium">{phoneError}</p>}
               </div>
 
               <div className="space-y-2">
@@ -290,7 +313,9 @@ const StaffManagement = () => {
                 </div>
               </div>
 
-              <Button className="w-full bg-primary hover:bg-primary/90 text-white mt-4 h-11 font-bold" onClick={handleAddStaff}>Register Staff Member</Button>
+              <Button disabled={isSubmitting} className="w-full bg-primary hover:bg-primary/90 text-white mt-4 h-11 font-bold" onClick={handleAddStaff}>
+                {isSubmitting ? 'Registering...' : 'Register Staff Member'}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -428,10 +453,7 @@ const StaffManagement = () => {
                 </div>
 
                 <Button variant="ghost" className="mt-8 w-full text-[10px] text-destructive/60 hover:bg-destructive/10 hover:text-destructive transition-colors uppercase font-bold tracking-widest" onClick={() => {
-                  if(confirm("Are you sure you want to delete this staff member?")) {
-                    deleteStaff(selectedStaff.id);
-                    setSelectedStaffId(null);
-                  }
+                  setStaffToDelete(selectedStaff.id);
                 }}>
                   <Trash2 className="w-3 h-3 mr-2" /> Delete Record
                 </Button>
@@ -483,7 +505,7 @@ const StaffManagement = () => {
                                {p.status}
                              </span>
                              <Button size="icon" variant="ghost" className="h-7 w-7 opacity-0 group-hover:opacity-100 text-destructive hover:bg-destructive/10" onClick={() => {
-                               if(confirm("Delete this payment record?")) deleteStaffSalaryPayment(p.id);
+                               setPaymentToDelete(p.id);
                              }}>
                                 <Trash2 className="w-3.5 h-3.5" />
                              </Button>
@@ -503,6 +525,35 @@ const StaffManagement = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!staffToDelete}
+        onOpenChange={(open) => !open && setStaffToDelete(null)}
+        title="Delete Staff Member?"
+        description="Are you sure you want to delete this staff member? This action cannot be undone."
+        onConfirm={() => {
+          if (staffToDelete) {
+            deleteStaff(staffToDelete);
+            setStaffToDelete(null);
+            if (selectedStaffId === staffToDelete) setSelectedStaffId(null);
+          }
+        }}
+        destructive
+      />
+
+      <ConfirmDialog
+        open={!!paymentToDelete}
+        onOpenChange={(open) => !open && setPaymentToDelete(null)}
+        title="Delete Salary Payment?"
+        description="Are you sure you want to delete this payment record?"
+        onConfirm={() => {
+          if (paymentToDelete) {
+            deleteStaffSalaryPayment(paymentToDelete);
+            setPaymentToDelete(null);
+          }
+        }}
+        destructive
+      />
     </div>
   );
 };

@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { escapeHtml } from '@/lib/utils';
 
 const categories = [
   { name: 'Electricity', icon: Zap, color: 'text-yellow-400', bg: 'bg-yellow-400/10' },
@@ -25,6 +27,9 @@ const Expenses = () => {
   const { expenses, addExpense, deleteExpense, staff, addStaffSalaryPayment } = useLibrary();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isAddMode, setIsAddMode] = useState(false);
+  
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
   
   const [newEntry, setNewEntry] = useState<Omit<Expense, 'id' | 'libraryId' | 'category'>>({
     amount: 0,
@@ -45,6 +50,7 @@ const Expenses = () => {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const selectedStaff = selectedCategory === 'Salary' ? staff.find(s => s.id === selectedStaffId) : null;
       const finalNote = selectedCategory === 'Salary' && selectedStaff 
@@ -78,6 +84,8 @@ const Expenses = () => {
     } catch (error: any) {
       console.error(error);
       toast.error(error.message || 'Failed to add expense');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -125,10 +133,10 @@ const Expenses = () => {
               ${sortedExpenses.map((e, i) => `
                 <tr>
                   <td>${i + 1}</td>
-                  <td>${e.category}</td>
+                  <td>${escapeHtml(e.category)}</td>
                   <td>${Number(e.amount).toLocaleString()}</td>
                   <td>${format(parseISO(e.date), 'MMM d, yyyy')}</td>
-                  <td>${e.note || '-'}</td>
+                  <td>${escapeHtml(e.note || '-')}</td>
                 </tr>
               `).join('')}
               <tr class="total-row">
@@ -327,8 +335,10 @@ const Expenses = () => {
                     />
                   </div>
                   <div className="flex gap-3 pt-2">
-                     <Button variant="ghost" className="flex-1 hover:bg-white/5" onClick={() => setIsAddMode(false)}>Back to History</Button>
-                     <Button className="flex-2 bg-primary hover:bg-primary/90 text-white px-8" onClick={handleAddExpense}>Save Entry</Button>
+                     <Button variant="ghost" className="flex-1 hover:bg-white/5" disabled={isSubmitting} onClick={() => setIsAddMode(false)}>Back to History</Button>
+                     <Button className="flex-2 bg-primary hover:bg-primary/90 text-white px-8" disabled={isSubmitting} onClick={handleAddExpense}>
+                       {isSubmitting ? 'Saving...' : 'Save Entry'}
+                     </Button>
                   </div>
                 </motion.div>
               ) : (
@@ -368,7 +378,7 @@ const Expenses = () => {
                           size="icon" 
                           variant="ghost" 
                           className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 hover:bg-destructive/10 transition-all"
-                          onClick={() => { if(confirm('Delete this entry?')) deleteExpense(item.id); }}
+                          onClick={() => setExpenseToDelete(item.id)}
                         >
                            <Trash2 className="w-4 h-4" />
                         </Button>
@@ -386,6 +396,20 @@ const Expenses = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!expenseToDelete}
+        onOpenChange={(open) => !open && setExpenseToDelete(null)}
+        title="Delete Expense Entry?"
+        description="Are you sure you want to delete this expense record? This action cannot be undone."
+        onConfirm={() => {
+          if (expenseToDelete) {
+            deleteExpense(expenseToDelete);
+            setExpenseToDelete(null);
+          }
+        }}
+        destructive
+      />
     </div>
   );
 };

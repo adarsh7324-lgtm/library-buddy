@@ -3,7 +3,7 @@ import { useLibrary } from '@/context/LibraryContext';
 import { Search, Trash2, MessageSquare, Download, User, Printer } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { format, parseISO, differenceInDays } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { motion } from 'framer-motion';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { Member } from '@/context/LibraryContext';
 
 type FilterType = 'All' | 'Morning' | 'Afternoon' | 'Evening' | 'Night' | 'Full Day' | 'Active' | 'Expired' | 'Expiring Soon';
 
@@ -21,7 +23,11 @@ const Members = () => {
   const [filter, setFilter] = useState<FilterType>('All');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [isEditingIdCard, setIsEditingIdCard] = useState(false);
-  const [editForm, setEditForm] = useState<any>({});
+  const [editForm, setEditForm] = useState<Partial<Member>>({});
+  const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   
   const printIdCardPdf = async (member: any) => {
     try {
@@ -229,6 +235,9 @@ const Members = () => {
     return true;
   });
 
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const paginatedMembers = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
   const handleDelete = async (id: string) => {
     try {
       await deleteMember(id);
@@ -317,7 +326,7 @@ const Members = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((member, i) => {
+              {paginatedMembers.map((member, i) => {
                 const globalIndex = sortedAllMembers.findIndex(x => x.id === member.id) + 1;
                 return (
                 <motion.tr key={member.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }} className="border-b border-white/5 hover:bg-white/5 transition-colors">
@@ -340,7 +349,7 @@ const Members = () => {
                   <td className="py-3 px-5 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Button size="icon" variant="ghost" className="h-8 w-8 text-white hover:bg-white hover:text-black" onClick={() => setSelectedMemberId(member.id)}><User className="w-4 h-4" /></Button>
-                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:bg-destructive/20 hover:text-destructive" onClick={() => handleDelete(member.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:bg-destructive/20 hover:text-destructive" onClick={() => setMemberToDelete(member.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                       <a
                         href={`https://wa.me/${member.countryCode.replace('+', '')}${member.phone}?text=${encodeURIComponent(`Hello ${member.fullName}, your library membership expires on ${format(parseISO(member.expiryDate), 'MMM d, yyyy')}. Please renew to continue access.`)}`}
                         target="_blank"
@@ -360,7 +369,7 @@ const Members = () => {
 
       {/* Mobile Cards */}
       <div className="md:hidden space-y-3">
-        {filtered.map((member, i) => {
+        {paginatedMembers.map((member, i) => {
           const globalIndex = sortedAllMembers.findIndex(x => x.id === member.id) + 1;
           return (
           <motion.div key={member.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="stat-card">
@@ -379,7 +388,7 @@ const Members = () => {
             <p className="text-xs text-white/50 mb-3">Joined {member.startDate ? format(parseISO(member.startDate), 'MMM d, yyyy') : '-'} • Expires {format(parseISO(member.expiryDate), 'MMM d, yyyy')}</p>
             <div className="flex gap-2">
               <Button size="sm" className="text-xs bg-white/40 text-white hover:bg-white/50 border-0" onClick={() => setSelectedMemberId(member.id)}><User className="w-3 h-3 mr-1" /> ID Card</Button>
-              <Button size="sm" variant="outline" className="text-xs text-destructive bg-destructive/10 border-destructive/20 hover:bg-destructive/20 hover:text-destructive" onClick={() => handleDelete(member.id)}><Trash2 className="w-3 h-3 mr-1" /> Delete</Button>
+              <Button size="sm" variant="outline" className="text-xs text-destructive bg-destructive/10 border-destructive/20 hover:bg-destructive/20 hover:text-destructive" onClick={() => setMemberToDelete(member.id)}><Trash2 className="w-3 h-3 mr-1" /> Delete</Button>
               <a href={`https://wa.me/${member.countryCode.replace('+', '')}${member.phone}?text=${encodeURIComponent(`Hello ${member.fullName}, your library membership expires on ${format(parseISO(member.expiryDate), 'MMM d, yyyy')}. Please renew to continue access.`)}`} target="_blank" rel="noopener noreferrer">
                 <Button size="sm" variant="outline" className="text-xs text-success bg-success/10 border-success/20 hover:bg-success/20 hover:text-success"><MessageSquare className="w-3 h-3 mr-1" /> WhatsApp</Button>
               </a>
@@ -388,6 +397,31 @@ const Members = () => {
         );})}
         {filtered.length === 0 && <p className="text-center text-white/50 py-8">No members found</p>}
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex justify-between items-center bg-black/20 border border-white/10 rounded-2xl p-4 mt-6">
+          <Button 
+            variant="outline" 
+            className="border-white/10 text-white bg-white/5 disabled:opacity-50"
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+          >
+            Previous
+          </Button>
+          <span className="text-white/70 text-sm">
+            Page {currentPage} of {totalPages}
+          </span>
+          <Button 
+            variant="outline" 
+            className="border-white/10 text-white bg-white/5 disabled:opacity-50"
+            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+          >
+            Next
+          </Button>
+        </div>
+      )}
 
       {/* ID Card Dialog */}
       <Dialog open={!!selectedMemberId} onOpenChange={() => setSelectedMemberId(null)}>
@@ -430,13 +464,13 @@ const Members = () => {
                             phone: member.phone,
                             address: member.address || '',
                             seatNumber: member.seatNumber || '',
-                            shift: member.shift || '',
+                            shift: member.shift,
                             startTime: member.startTime || '',
                             endTime: member.endTime || '',
                             lockerFacility: member.lockerFacility || false,
                             idProofNumber: member.idProofNumber || '',
                             targetExam: member.targetExam || '',
-                            discountAmount: member.discountAmount || '',
+                            discountAmount: member.discountAmount || undefined,
                           });
                         }}>
                           Edit
@@ -476,7 +510,7 @@ const Members = () => {
                           </div>
                           <div className="col-span-1">
                             <Label className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Shift</Label>
-                            <Select value={editForm.shift} onValueChange={v => setEditForm({ ...editForm, shift: v })}>
+                            <Select value={editForm.shift} onValueChange={v => setEditForm({ ...editForm, shift: v as Member['shift'] })}>
                               <SelectTrigger className="h-8 bg-black/20 text-sm"><SelectValue placeholder="Shift" /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="Morning">Morning</SelectItem>
@@ -616,6 +650,20 @@ const Members = () => {
           })()}
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!memberToDelete}
+        onOpenChange={(open) => !open && setMemberToDelete(null)}
+        title="Delete Member?"
+        description="Are you sure you want to delete this member? This action cannot be undone."
+        onConfirm={() => {
+          if (memberToDelete) {
+            handleDelete(memberToDelete);
+            setMemberToDelete(null);
+          }
+        }}
+        destructive
+      />
     </div>
   );
 };

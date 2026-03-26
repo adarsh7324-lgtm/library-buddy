@@ -9,13 +9,7 @@ import { User, Armchair, Clock, Hash, MapPin, CalendarDays, Phone } from 'lucide
 import { format, parseISO } from 'date-fns';
 import { Trash2 } from 'lucide-react';
 import { Member } from '@/context/LibraryContext';
-
-const timeToMinutes = (time?: string) => {
-    if (!time) return 0;
-    const [hours, minutes] = time.split(':').map(Number);
-    return hours * 60 + minutes;
-};
-
+import { timeToMinutes } from '@/lib/utils';
 const Seats = () => {
     const { settings, updateSettings, members } = useLibrary();
     const [numRoomsInput, setNumRoomsInput] = useState('');
@@ -26,7 +20,7 @@ const Seats = () => {
     // Time filters state
     const now = new Date();
     const currentHour = now.getHours().toString().padStart(2, '0') + ':00';
-    const nextHour = (now.getHours() + 1).toString().padStart(2, '0') + ':00';
+    const nextHour = ((now.getHours() + 1) % 24).toString().padStart(2, '0') + ':00';
     const [startTime, setStartTime] = useState(currentHour);
     const [endTime, setEndTime] = useState(nextHour);
 
