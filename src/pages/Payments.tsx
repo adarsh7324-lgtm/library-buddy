@@ -19,7 +19,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useEffect, useMemo } from 'react';
 
 const Payments = () => {
-  const { members, payments, deletedPayments, addPayment, updatePayment, upgradeMember, deletePayment, clearDeletedPayments, updateMember } = useLibrary();
+  const { members, payments, deletedPayments, addPayment, updatePayment, upgradeMember, deletePayment, clearDeletedPayments, updateMember, settings } = useLibrary();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [openMemberSelect, setOpenMemberSelect] = useState(false);
   const [form, setForm] = useState<{
@@ -141,7 +141,7 @@ const Payments = () => {
         message += `📅 Date: ${format(new Date(paymentDate), 'dd MMM yyyy')}\n`;
         if (form.note) message += `📝 Note: ${form.note}\n`;
 
-        message += `\nThank you for choosing Library Buddy! 📚`;
+        message += `\nThank you for choosing ${settings?.libraryName?.trim() || 'Library Buddy'}! 📚`;
 
         const encodedMessage = encodeURIComponent(message);
         const waNumber = `${(member.countryCode || '+91').replace('+', '')}${member.phone}`;

@@ -5,7 +5,7 @@ import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter, useSidebar,
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, Users, UserPlus, IndianRupee, LogOut, BookOpen, Bell, ShieldCheck, ReceiptText } from 'lucide-react';
+import { LayoutDashboard, Users, UserPlus, IndianRupee, LogOut, BookOpen, Bell, ShieldCheck, ReceiptText, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const navItems = [
@@ -17,13 +17,15 @@ const navItems = [
   { title: 'Reminders', url: '/reminders', icon: Bell },
   { title: 'Staff', url: '/staff', icon: Users },
   { title: 'Expenses', url: '/expenses', icon: ReceiptText },
+  { title: 'Settings', url: '/settings', icon: Settings },
 ];
 
 export function AppSidebar() {
   const { state, setOpenMobile, setOpen, isMobile } = useSidebar();
   const collapsed = state === 'collapsed' && !isMobile;
-  const { logout, isSuperAdmin, switchLibrary } = useLibrary();
+  const { logout, isSuperAdmin, switchLibrary, settings } = useLibrary();
   const navigate = useNavigate();
+  const libraryDisplayName = settings?.libraryName?.trim() || 'Library Buddy';
 
   const handleLogout = () => { logout(); navigate('/login'); };
   const handleReturnToPortal = () => { switchLibrary('superadmin'); };
@@ -37,7 +39,7 @@ export function AppSidebar() {
               <div className="w-6 h-6 rounded-lg bg-sidebar-primary flex items-center justify-center flex-shrink-0">
                 <BookOpen className="w-3.5 h-3.5 text-sidebar-primary-foreground" />
               </div>
-              {!collapsed && <span className="font-display font-bold text-sm text-sidebar-foreground">Library Buddy</span>}
+              {!collapsed && <span className="font-display font-bold text-sm text-sidebar-foreground">{libraryDisplayName}</span>}
             </div>
           </SidebarGroupLabel>
           <SidebarGroupContent className="mt-4">

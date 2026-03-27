@@ -41,6 +41,7 @@ export interface LibrarySettings {
   totalSeats?: number;
   rooms?: Room[];
   adminPin?: string;
+  libraryName?: string;
 }
 
 export interface Payment {
@@ -765,6 +766,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         ...newSettings
       });
       if (error) throw error;
+      // Optimistically update local state so UI reflects changes immediately
+      setSettings(prev => prev ? { ...prev, ...newSettings } : newSettings as LibrarySettings);
     } catch (error) {
       console.error('Error updating settings:', error);
       toast.error('Failed to update settings');

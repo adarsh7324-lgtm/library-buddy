@@ -18,7 +18,8 @@ import { Member } from '@/context/LibraryContext';
 type FilterType = 'All' | 'Morning' | 'Afternoon' | 'Evening' | 'Night' | 'Full Day' | 'Active' | 'Expired' | 'Expiring Soon';
 
 const Members = () => {
-  const { members, payments, deleteMember, updateMember } = useLibrary();
+  const { members, payments, deleteMember, updateMember, settings } = useLibrary();
+  const libraryDisplayName = settings?.libraryName?.trim() || 'Library Buddy';
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('All');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
@@ -50,7 +51,7 @@ const Members = () => {
       doc.setTextColor(0, 0, 0);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(14);
-      doc.text('LIBRARY BUDDY', 105, 15, { align: 'center' });
+      doc.text(sanitizeText(libraryDisplayName).toUpperCase(), 105, 15, { align: 'center' });
       doc.setFontSize(10);
       doc.text('MEMBER IDENTITY CARD', 105, 20, { align: 'center' });
 
@@ -253,6 +254,7 @@ const Members = () => {
   const exportToPDF = () => {
     const doc = new jsPDF();
     doc.text(`Members List (${filter})`, 14, 15);
+    doc.text(`${libraryDisplayName}`, 14, 22);
 
     const tableData = filtered.map(m => [
       m.fullName,

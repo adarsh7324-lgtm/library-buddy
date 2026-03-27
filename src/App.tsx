@@ -15,6 +15,7 @@ import Seats from "./pages/Seats";
 import StaffManagement from "./pages/StaffManagement";
 import Expenses from "./pages/Expenses";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
+import Settings from "./pages/Settings";
 import { ThemeProvider } from "./components/theme-provider";
 import ErrorBoundary from "./components/ErrorBoundary";
 
@@ -54,6 +55,7 @@ const AppRoutes = () => (
     <Route path="/reminders" element={<ProtectedRoute><Reminders /></ProtectedRoute>} />
     <Route path="/staff" element={<ProtectedRoute><StaffManagement /></ProtectedRoute>} />
     <Route path="/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
+    <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );

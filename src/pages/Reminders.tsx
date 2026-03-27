@@ -7,7 +7,7 @@ import { format, parseISO } from 'date-fns';
 import { motion } from 'framer-motion';
 
 const Reminders = () => {
-    const { members } = useLibrary();
+    const { members, settings } = useLibrary();
     const [search, setSearch] = useState('');
 
     const expiringSoon = members.filter(m => m.status === 'Expiring Soon');
@@ -37,12 +37,13 @@ const Reminders = () => {
 
     const getWhatsAppLink = (member: Member, isExpired: boolean) => {
         const formattedDate = member.expiryDate ? format(parseISO(member.expiryDate), 'MMM d, yyyy') : 'N/A';
+        const libName = settings?.libraryName?.trim() || 'Library Buddy';
         let message = '';
 
         if (isExpired) {
-            message = `Hello ${member.fullName}, your library membership with us expired on ${formattedDate}. Please renew your plan to continue your access securely. Thank you!`;
+            message = `Hello ${member.fullName}, your ${libName} membership expired on ${formattedDate}. Please renew your plan to continue your access securely. Thank you!`;
         } else {
-            message = `Hello ${member.fullName}, this is a gentle reminder that your library membership is expiring soon on ${formattedDate}. Please consider renewing your plan to enjoy uninterrupted access. Thank you!`;
+            message = `Hello ${member.fullName}, this is a gentle reminder that your ${libName} membership is expiring soon on ${formattedDate}. Please consider renewing to enjoy uninterrupted access. Thank you!`;
         }
 
         return `https://wa.me/${(member.countryCode || '+91').replace('+', '')}${member.phone}?text=${encodeURIComponent(message)}`;
