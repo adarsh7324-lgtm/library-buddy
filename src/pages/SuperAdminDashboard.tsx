@@ -8,18 +8,29 @@ import { Button } from '@/components/ui/button';
 export default function SuperAdminDashboard() {
     const { switchLibrary, logout } = useLibrary();
     const [clientLibraries, setClientLibraries] = useState<{ id: string, email: string, hasUserId: boolean }[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [fetchError, setFetchError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchLibraries = async () => {
-            const { data } = await supabase.from('authorized_users').select('email, user_id, role');
-            if (data) {
-                // Filter out all superadmins and only show registered normal admins/libraries
-                const validLibs = data.filter(u => u.role !== 'superadmin');
-                setClientLibraries(validLibs.map(user => ({
-                    id: user.user_id || user.email, // fallback, but UI will warn if null
-                    email: user.email,
-                    hasUserId: !!user.user_id
-                })));
+            setIsLoading(true);
+            setFetchError(null);
+            try {
+                const { data, error } = await supabase.from('authorized_users').select('email, user_id, role');
+                if (error) throw error;
+                if (data) {
+                    const validLibs = data.filter(u => u.role !== 'superadmin');
+                    setClientLibraries(validLibs.map(user => ({
+                        id: user.user_id || user.email,
+                        email: user.email,
+                        hasUserId: !!user.user_id
+                    })));
+                }
+            } catch (err) {
+                console.error('Failed to fetch libraries:', err);
+                setFetchError('Failed to load libraries. Please try refreshing.');
+            } finally {
+                setIsLoading(false);
             }
         };
         fetchLibraries();
@@ -46,6 +57,21 @@ export default function SuperAdminDashboard() {
                 </div>
 
                 {/* Library Grid */}
+                {isLoading ? (
+                    <div className="flex justify-center py-20">
+                        <div className="flex flex-col items-center gap-4">
+                            <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                            <p className="text-white/60 text-sm">Loading libraries...</p>
+                        </div>
+                    </div>
+                ) : fetchError ? (
+                    <div className="glass-panel p-8 rounded-2xl border-destructive/30 text-center">
+                        <p className="text-destructive font-medium">{fetchError}</p>
+                        <Button variant="outline" className="mt-4 border-white/10 text-white hover:bg-white/10" onClick={() => window.location.reload()}>
+                            Retry
+                        </Button>
+                    </div>
+                ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {clientLibraries.map((lib, index) => (
                         <motion.div
@@ -84,7 +110,7 @@ export default function SuperAdminDashboard() {
                         </motion.div>
                     ))}
                 </div>
-
+                )}
             </div>
         </div>
     );

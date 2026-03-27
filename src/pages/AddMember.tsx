@@ -175,12 +175,13 @@ const AddMember = () => {
         expiryDate: form.startDate,
         months: 0,
         feesPaid: 0,
-        status: 'Active',
+        status: 'Expiring Soon',
         seatNumber: form.seatNumber,
         startTime: form.startTime,
         endTime: form.endTime,
         lockerFacility: form.lockerFacility,
         shift: (form.shift as 'Morning' | 'Afternoon' | 'Evening' | 'Night' | 'Full') || null,
+        targetExam: form.targetExam || '',
       };
 
       await addMember(memberData, photoBase64 || undefined);

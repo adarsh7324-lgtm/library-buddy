@@ -152,9 +152,9 @@ const StaffManagement = () => {
       });
       setPhotoPreview(null);
       setPhotoBase64(null);
-    } catch (error: any) {
+    } catch (error) {
       console.error(error);
-      toast.error(error.message || 'Failed to add staff');
+      toast.error(error instanceof Error ? error.message : 'Failed to add staff');
     } finally {
       setIsSubmitting(false);
     }
@@ -531,9 +531,11 @@ const StaffManagement = () => {
         onOpenChange={(open) => !open && setStaffToDelete(null)}
         title="Delete Staff Member?"
         description="Are you sure you want to delete this staff member? This action cannot be undone."
-        onConfirm={() => {
+        onConfirm={async () => {
           if (staffToDelete) {
-            deleteStaff(staffToDelete);
+            try {
+              await deleteStaff(staffToDelete);
+            } catch { /* context handles toast */ }
             setStaffToDelete(null);
             if (selectedStaffId === staffToDelete) setSelectedStaffId(null);
           }
@@ -546,9 +548,11 @@ const StaffManagement = () => {
         onOpenChange={(open) => !open && setPaymentToDelete(null)}
         title="Delete Salary Payment?"
         description="Are you sure you want to delete this payment record?"
-        onConfirm={() => {
+        onConfirm={async () => {
           if (paymentToDelete) {
-            deleteStaffSalaryPayment(paymentToDelete);
+            try {
+              await deleteStaffSalaryPayment(paymentToDelete);
+            } catch { /* context handles toast */ }
             setPaymentToDelete(null);
           }
         }}

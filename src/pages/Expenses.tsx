@@ -81,9 +81,9 @@ const Expenses = () => {
         note: ''
       });
       setSelectedStaffId('');
-    } catch (error: any) {
+    } catch (error) {
       console.error(error);
-      toast.error(error.message || 'Failed to add expense');
+      toast.error(error instanceof Error ? error.message : 'Failed to add expense');
     } finally {
       setIsSubmitting(false);
     }
@@ -402,9 +402,11 @@ const Expenses = () => {
         onOpenChange={(open) => !open && setExpenseToDelete(null)}
         title="Delete Expense Entry?"
         description="Are you sure you want to delete this expense record? This action cannot be undone."
-        onConfirm={() => {
+        onConfirm={async () => {
           if (expenseToDelete) {
-            deleteExpense(expenseToDelete);
+            try {
+              await deleteExpense(expenseToDelete);
+            } catch { /* context handles toast */ }
             setExpenseToDelete(null);
           }
         }}

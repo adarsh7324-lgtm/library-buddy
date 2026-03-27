@@ -16,6 +16,7 @@ import StaffManagement from "./pages/StaffManagement";
 import Expenses from "./pages/Expenses";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import { ThemeProvider } from "./components/theme-provider";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isSuperAdmin, activeLibraryId, isAuthChecking } = useLibrary();
@@ -64,7 +65,9 @@ const App = () => (
       <Sonner />
       <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
         <BrowserRouter>
-          <AppRoutes />
+          <ErrorBoundary>
+            <AppRoutes />
+          </ErrorBoundary>
         </BrowserRouter>
       </ThemeProvider>
     </LibraryProvider>

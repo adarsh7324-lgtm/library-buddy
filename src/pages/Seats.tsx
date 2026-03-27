@@ -8,7 +8,7 @@ import { motion } from 'framer-motion';
 import { User, Armchair, Clock, Hash, MapPin, CalendarDays, Phone } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { Trash2 } from 'lucide-react';
-import { Member } from '@/context/LibraryContext';
+import { Member, Room } from '@/context/LibraryContext';
 import { timeToMinutes } from '@/lib/utils';
 const Seats = () => {
     const { settings, updateSettings, members } = useLibrary();
@@ -31,7 +31,7 @@ const Seats = () => {
         if (!isNaN(total) && total > 0) {
             const initialCapacities: { [key: string]: number } = {};
             for (let i = 1; i <= total; i++) {
-                const existingRoom = settings?.rooms?.find((r: any) => r.id === `room-${i}`);
+                const existingRoom = settings?.rooms?.find((r: Room) => r.id === `room-${i}`);
                 if (existingRoom) {
                     initialCapacities[`room-${i}`] = existingRoom.capacity;
                 } else {
@@ -47,7 +47,7 @@ const Seats = () => {
         if (settings?.rooms) {
             setNumRoomsInput(settings.rooms.length.toString());
             const initialCapacities: { [key: string]: number } = {};
-            settings.rooms.forEach((room: any) => {
+            settings.rooms.forEach((room: Room) => {
                 initialCapacities[room.id] = room.capacity;
             });
             setRoomCapacities(initialCapacities);
@@ -71,6 +71,17 @@ const Seats = () => {
         setIsEditing(false);
     };
 
+    const seatMap = useMemo(() => {
+        const m = new Map<string, Member[]>();
+        members.forEach(member => {
+            if (!member.seatNumber) return;
+            const existing = m.get(member.seatNumber) || [];
+            existing.push(member);
+            m.set(member.seatNumber, existing);
+        });
+        return m;
+    }, [members]);
+
     // Derive seat statuses based on selected time per room
     const roomsData = useMemo(() => {
         if (!settings?.rooms || settings.rooms.length === 0) return [];
@@ -83,18 +94,12 @@ const Seats = () => {
             for (let i = 1; i <= room.capacity; i++) {
                 const seatIdStr = `${room.name} - Seat ${i}`; // e.g., "Room 1 - Seat 5"
 
-                // Find an active/expired member occupying this exact composite seat string during the filtered time
-                const occupant = members.find(m => {
-                    // Backwards compatibility for old "Seat X" or "X" formats logic skipped, 
-                    // assuming new members will use exact string matches.
-                    if (m.seatNumber !== seatIdStr) return false;
-
-                    // Time overlap logic
+                const seatMembers = seatMap.get(seatIdStr) || [];
+                const occupant = seatMembers.find(m => {
                     if (!m.startTime || !m.endTime) return false;
                     const memberStartMins = timeToMinutes(m.startTime);
                     const memberEndMins = timeToMinutes(m.endTime);
 
-                    // Overlap condition: max(start1, start2) < min(end1, end2)
                     return Math.max(filterStartMins, memberStartMins) < Math.min(filterEndMins, memberEndMins);
                 });
 
@@ -108,7 +113,7 @@ const Seats = () => {
             return { ...room, seats };
         });
 
-    }, [settings?.rooms, members, startTime, endTime]);
+    }, [settings?.rooms, seatMap, startTime, endTime]);
 
     const seatOccupants = useMemo(() => {
         if (!selectedSeat) return [];

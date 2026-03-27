@@ -28,6 +28,7 @@ export interface Member {
   photoUrl?: string;
   targetExam?: string;
   shift?: 'Morning' | 'Afternoon' | 'Evening' | 'Night' | 'Full';
+  created_at?: string;
 }
 
 export interface Room {
@@ -39,6 +40,7 @@ export interface Room {
 export interface LibrarySettings {
   totalSeats?: number;
   rooms?: Room[];
+  adminPin?: string;
 }
 
 export interface Payment {
@@ -158,7 +160,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
 
   useEffect(() => {
-    const handleAuthSession = async (session: any) => {
+    const handleAuthSession = async (session: import('@supabase/supabase-js').Session | null) => {
       if (!session?.user?.email) {
         setIsAuthChecking(false);
         return;
@@ -186,17 +188,15 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         // Super Admin Check using the 'role' column
         if (authorizedUser.role === 'superadmin') {
           setIsSuperAdmin(true);
-          sessionStorage.setItem('librarypro_is_superadmin', 'true');
-
           // If they don't have a specific library selected, default to 'superadmin' string
           const currentLib = sessionStorage.getItem('librarypro_library_id');
-          if (!currentLib || currentLib === 'superadmin') {
-            setActiveLibraryId('superadmin');
-            sessionStorage.setItem('librarypro_library_id', 'superadmin');
-          } else {
-            setActiveLibraryId(currentLib);
+          const targetLib = (!currentLib || currentLib === 'superadmin') ? 'superadmin' : currentLib;
+          
+          if (activeLibraryId !== targetLib) {
+            setActiveLibraryId(targetLib);
+            sessionStorage.setItem('librarypro_library_id', targetLib);
+            toast.success(`Welcome back, Super Admin!`);
           }
-          toast.success(`Welcome back, Super Admin!`);
           return;
         }
 
@@ -209,11 +209,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           await supabase.from('authorized_users').update({ user_id: userId }).eq('email', session.user.email);
         }
 
-        setActiveLibraryId(userId);
+        if (activeLibraryId !== userId) {
+          setActiveLibraryId(userId);
+          toast.success(`Welcome back, ${session.user.email}!`);
+        }
         setIsSuperAdmin(false);
         sessionStorage.setItem('librarypro_library_id', userId);
         sessionStorage.removeItem('librarypro_is_superadmin');
-        toast.success(`Welcome back, ${session.user.email}!`);
       } catch (err) {
         console.error('Authorization check failed:', err);
         toast.error("Failed to verify authorization.");
@@ -248,7 +250,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, []); // Run only on mount to setup subscription
 
   const ensureSession = useCallback(async () => {
     const { data: { session }, error } = await supabase.auth.getSession();
@@ -263,7 +265,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     const { data: membersData, error } = await supabase
       .from('members')
       .select('*')
-      .eq('libraryId', activeLibraryId);
+      .eq('libraryId', activeLibraryId)
+      .limit(2000);
 
     if (error) {
       console.error('Error fetching members:', error);
@@ -274,7 +277,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const processedMembers = membersData.map((data: any) => {
+    const processedMembers = (membersData as Member[]).map((data) => {
       const expiryDate = new Date(data.expiryDate);
       expiryDate.setHours(0, 0, 0, 0);
 
@@ -303,7 +306,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase
       .from('payments')
       .select('*')
-      .eq('libraryId', activeLibraryId);
+      .eq('libraryId', activeLibraryId)
+      .limit(2000);
 
     if (error) {
       console.error('Error fetching payments:', error);
@@ -317,7 +321,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase
       .from('deleted_payments')
       .select('*')
-      .eq('libraryId', activeLibraryId);
+      .eq('libraryId', activeLibraryId)
+      .limit(2000);
 
     if (error) {
       console.error('Error fetching deleted payments:', error);
@@ -338,7 +343,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       console.error('Error fetching settings:', error);
       return;
     }
-    setSettings(data ? (data as LibrarySettings) : {});
+    setSettings(data ? (data as LibrarySettings) : null);
   }, [activeLibraryId]);
 
   const fetchStaff = useCallback(async () => {
@@ -346,7 +351,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase
       .from('staff')
       .select('*')
-      .eq('libraryId', activeLibraryId);
+      .eq('libraryId', activeLibraryId)
+      .limit(2000);
 
     if (error) {
       console.error('Error fetching staff:', error);
@@ -360,7 +366,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase
       .from('staff_salary_payments')
       .select('*')
-      .eq('libraryId', activeLibraryId);
+      .eq('libraryId', activeLibraryId)
+      .limit(2000);
 
     if (error) {
       console.error('Error fetching staff salary payments:', error);
@@ -374,7 +381,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase
       .from('expenses')
       .select('*')
-      .eq('libraryId', activeLibraryId);
+      .eq('libraryId', activeLibraryId)
+      .limit(2000);
 
     if (error) {
       console.error('Error fetching expenses:', error);
@@ -422,39 +430,40 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     ]).finally(() => setLoading(false));
 
     // Supabase Realtime Subscriptions
+    const channelSuffix = `${activeLibraryId}_${Date.now()}`;
     const filterStr = `libraryId=eq.${activeLibraryId}`;
     
-    const membersChannel = supabase.channel('members_changes')
+    const membersChannel = supabase.channel(`members_${channelSuffix}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'members', filter: filterStr }, () => {
         fetchMembers();
       }).subscribe();
 
-    const paymentsChannel = supabase.channel('payments_changes')
+    const paymentsChannel = supabase.channel(`payments_${channelSuffix}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: filterStr }, () => {
         fetchPayments();
       }).subscribe();
 
-    const deletedPaymentsChannel = supabase.channel('deleted_payments_changes')
+    const deletedPaymentsChannel = supabase.channel(`deleted_payments_${channelSuffix}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'deleted_payments', filter: filterStr }, () => {
         fetchDeletedPayments();
       }).subscribe();
 
-    const settingsChannel = supabase.channel('settings_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings', filter: filterStr }, () => {
+    const settingsChannel = supabase.channel(`settings_${channelSuffix}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => {
         fetchSettings();
       }).subscribe();
 
-    const staffChannel = supabase.channel('staff_changes')
+    const staffChannel = supabase.channel(`staff_${channelSuffix}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'staff', filter: filterStr }, () => {
         fetchStaff();
       }).subscribe();
 
-    const staffPaymentsChannel = supabase.channel('staff_salary_payments_changes')
+    const staffPaymentsChannel = supabase.channel(`staff_payments_${channelSuffix}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_salary_payments', filter: filterStr }, () => {
         fetchStaffSalaryPayments();
       }).subscribe();
 
-    const expensesChannel = supabase.channel('expenses_changes')
+    const expensesChannel = supabase.channel(`expenses_${channelSuffix}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses', filter: filterStr }, () => {
         fetchExpenses();
       }).subscribe();
@@ -548,6 +557,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       }]).select().single();
 
       if (error) throw error;
+      setMembers(prev => [...prev, { ...member, id: data.id, libraryId: activeLibraryId, photoUrl: finalPhotoUrl } as Member]);
       return data.id;
     } catch (error) {
       console.error('Error adding member:', error);
@@ -558,7 +568,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
   const updateMember = useCallback(async (id: string, data: Partial<Member>) => {
     try {
-      const { error } = await supabase.from('members').update(data).eq('id', id);
+      if (!activeLibraryId) throw new Error('No active library session');
+      const { error } = await supabase.from('members').update(data).eq('id', id).eq('libraryId', activeLibraryId);
       if (error) throw error;
       setMembers(prev => prev.map(m => m.id === id ? { ...m, ...data } : m));
     } catch (error) {
@@ -566,7 +577,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       toast.error('Failed to update member');
       throw error;
     }
-  }, []);
+  }, [activeLibraryId]);
 
   const deleteMember = useCallback(async (id: string) => {
     if (!activeLibraryId) throw new Error('No active library session');
@@ -583,8 +594,9 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
   const upgradeMember = useCallback(async (id: string, additionalMonths: number, additionalDays?: number) => {
     try {
-      const member = members.find(m => m.id === id);
-      if (!member) throw new Error('Member not found from local state');
+      if (!activeLibraryId) throw new Error('No active library session');
+      const { data: member, error: memberFetchErr } = await supabase.from('members').select('*').eq('id', id).eq('libraryId', activeLibraryId).single();
+      if (memberFetchErr || !member) throw new Error('Member not found from remote server');
 
       const currentExpiry = new Date(member.expiryDate);
       const baseDate = currentExpiry > new Date() ? currentExpiry : new Date();
@@ -602,7 +614,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         updateData.customDays = (member.customDays || 0) + additionalDays;
       }
 
-      const { error } = await supabase.from('members').update(updateData).eq('id', id);
+      const { error } = await supabase.from('members').update(updateData).eq('id', id).eq('libraryId', activeLibraryId);
       if (error) throw error;
 
     } catch (error) {
@@ -610,7 +622,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       toast.error('Failed to upgrade member');
       throw error;
     }
-  }, [members]);
+  }, [activeLibraryId]);
 
   const addPayment = useCallback(async (payment: Omit<Payment, 'id' | 'libraryId'>) => {
     if (!activeLibraryId) throw new Error('Cannot register payment: No active library session');
@@ -631,8 +643,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const deletePayment = useCallback(async (id: string) => {
     if (!activeLibraryId) throw new Error('No active library session');
     try {
-      const paymentToDel = payments.find(p => p.id === id);
-      if (!paymentToDel) throw new Error('Payment not found');
+      const { data: paymentToDel, error: payErr } = await supabase.from('payments').select('*').eq('id', id).eq('libraryId', activeLibraryId).single();
+      if (payErr || !paymentToDel) throw new Error('Payment not found');
 
       const { id: paymentId, ...paymentData } = paymentToDel;
 
@@ -653,8 +665,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       }
 
       // Reverse the duration added by this payment on the member's profile
-      const member = members.find(m => m.id === paymentToDel.memberId);
-      if (member && (paymentToDel.months > 0 || (paymentToDel.customDays ?? 0) > 0)) {
+      const { data: member, error: memErr } = await supabase.from('members').select('*').eq('id', paymentToDel.memberId).eq('libraryId', activeLibraryId).single();
+      if (member && !memErr && (paymentToDel.months > 0 || (paymentToDel.customDays ?? 0) > 0)) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
@@ -679,7 +691,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           ...(member.customDays !== undefined ? { customDays: newCustomDays } : {}),
         };
 
-        const { error: memberUpdateError } = await supabase.from('members').update(memberUpdate).eq('id', member.id);
+        const { error: memberUpdateError } = await supabase.from('members').update(memberUpdate).eq('id', member.id).eq('libraryId', activeLibraryId);
         if (memberUpdateError) {
           console.error('Failed to reverse member duration after payment delete:', memberUpdateError);
           toast.error('Payment deleted, but failed to update member duration.');
@@ -694,7 +706,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       toast.error('Failed to delete payment');
       throw error;
     }
-  }, [payments, members]);
+  }, [activeLibraryId]);
 
   const clearDeletedPayments = useCallback(async (password: string) => {
     try {
@@ -705,15 +717,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         throw new Error('Not authenticated');
       }
 
-      // Re-authenticate using Supabase to verify password
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: session.user.email,
-        password: password
-      });
-
-      if (signInError) {
-        toast.error('Invalid password');
-        throw new Error('Invalid password');
+      // Verify Admin PIN
+      const { data: currentSettings } = await supabase.from('settings').select('adminPin').eq('id', activeLibraryId).single();
+      const expectedPin = currentSettings?.adminPin || '1234';
+      
+      if (password !== expectedPin) {
+        toast.error('Invalid administrative PIN');
+        throw new Error('Invalid PIN');
       }
 
       const { error } = await supabase.from('deleted_payments').delete().eq('libraryId', activeLibraryId);
@@ -809,16 +819,17 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
       setStaff(prev => [...prev, data as Staff]);
       return data.id;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error adding staff:', error);
-      toast.error(error.message || 'Failed to add staff');
+      toast.error(error instanceof Error ? error.message : 'Failed to add staff');
       throw error;
     }
   }, [activeLibraryId, ensureSession]);
 
   const updateStaff = useCallback(async (id: string, data: Partial<Staff>) => {
     try {
-      const { error } = await supabase.from('staff').update(data).eq('id', id);
+      if (!activeLibraryId) throw new Error('No active library session');
+      const { error } = await supabase.from('staff').update(data).eq('id', id).eq('libraryId', activeLibraryId);
       if (error) throw error;
       setStaff(prev => prev.map(s => s.id === id ? { ...s, ...data } : s));
     } catch (error) {
@@ -826,7 +837,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       toast.error('Failed to update staff');
       throw error;
     }
-  }, []);
+  }, [activeLibraryId]);
 
   const deleteStaff = useCallback(async (id: string) => {
     try {
@@ -839,7 +850,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       toast.error('Failed to delete staff');
       throw error;
     }
-  }, []);
+  }, [activeLibraryId]);
 
   const addStaffSalaryPayment = useCallback(async (payment: Omit<StaffSalaryPayment, 'id' | 'libraryId'>) => {
     if (!activeLibraryId) throw new Error('No active library session');
@@ -852,9 +863,9 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
       setStaffSalaryPayments(prev => [...prev, data as StaffSalaryPayment]);
       toast.success('Salary payment recorded');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error adding staff salary payment:', error);
-      toast.error(error.message || 'Failed to add salary payment');
+      toast.error(error instanceof Error ? error.message : 'Failed to add salary payment');
       throw error;
     }
   }, [activeLibraryId, ensureSession]);
@@ -888,7 +899,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       toast.error('Failed to delete salary payment');
       throw error;
     }
-  }, []);
+  }, [activeLibraryId]);
 
   const addExpense = useCallback(async (expense: Omit<Expense, 'id' | 'libraryId'>) => {
     if (!activeLibraryId) throw new Error('No active library session');
@@ -901,9 +912,9 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
       if (data) setExpenses(prev => [...prev, data as Expense]);
       toast.success('Expense recorded');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error adding expense:', error);
-      toast.error(error.message || 'Failed to add expense');
+      toast.error(error instanceof Error ? error.message : 'Failed to add expense');
       throw error;
     }
   }, [activeLibraryId, ensureSession]);
@@ -920,7 +931,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       toast.error('Failed to delete expense');
       throw error;
     }
-  }, []);
+  }, [activeLibraryId]);
 
   return (
     <LibraryContext.Provider value={{

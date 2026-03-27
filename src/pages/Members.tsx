@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useLibrary } from '@/context/LibraryContext';
 import { Search, Trash2, MessageSquare, Download, User, Printer } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -29,13 +29,20 @@ const Members = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   
-  const printIdCardPdf = async (member: any) => {
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filter]);
+  
+  const printIdCardPdf = (member: Member) => {
     try {
-      const doc = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      });
+      const doc = new jsPDF();
+      
+      // Helper to sanitize text for PDF (removes non-ASCII and replaces Rupee symbol)
+      const sanitizeText = (text: string) => {
+        if (!text) return '';
+        // Replace Rupee symbol and strip non-ASCII to prevent jsPDF encoding glitches
+        return text.toString().replace(/₹/g, 'Rs.').replace(/[^\x00-\x7F]/g, '');
+      };
 
       doc.setFillColor(255, 255, 255);
       doc.rect(0, 0, 210, 297, 'F');
@@ -53,31 +60,26 @@ const Members = () => {
       const startY = 25;
       const rowH = 10;
       
-      // Block 1 Box
-      doc.rect(10, startY, 190, 50); 
-      
-      // Vertical lines for the left 150mm area
-      // Cols: 10 (+35=45) (+40=85) (+35=120) (+40=160)
-      doc.line(45, startY, 45, startY + 50);
-      doc.line(85, startY, 85, startY + 50);
-      doc.line(120, startY, 120, startY + 50);
-      doc.line(160, startY, 160, startY + 50); // Boundary for photo
-      
-      // Horizontal lines for the 5 rows
-      for (let i = 1; i < 5; i++) {
-        doc.line(10, startY + i * rowH, 160, startY + i * rowH);
-      }
-      
       const drawTextInCell = (text: string, x: number, y: number, w: number, h: number, isLabel: boolean = false) => {
         doc.setFont('helvetica', isLabel ? 'bold' : 'normal');
         doc.setFontSize(isLabel ? 9 : 8);
-        const textLines = doc.splitTextToSize(text || '', w - 2);
-        const textHeight = textLines.length * doc.getLineHeight() / doc.internal.scaleFactor;
-        const startTextY = y + (h - textHeight) / 2 + (doc.getFontSize() / doc.internal.scaleFactor);
-        doc.text(textLines, x + 1, startTextY - 0.5);
+        const pad = 1;
+        const sanitized = sanitizeText(text);
+        const textLines = doc.splitTextToSize(sanitized, w - pad * 2);
+        doc.text(textLines, x + pad, y + 5.5, { maxWidth: w - pad * 2 });
       };
 
-      // Header labels and values
+      // Block 1 Box
+      doc.rect(10, startY, 190, 50); 
+      doc.line(45, startY, 45, startY + 50);
+      doc.line(85, startY, 85, startY + 50);
+      doc.line(120, startY, 120, startY + 50);
+      doc.line(160, startY, 160, startY + 50);
+      
+      for (let i = 1; i < 5; i++) {
+        doc.line(10, startY + i * rowH, 160, startY + i * rowH);
+      }
+
       drawTextInCell('Candidate Name:', 10, startY, 35, rowH, true);
       drawTextInCell(member.fullName || 'N/A', 45, startY, 40, rowH);
       drawTextInCell('Phone Number:', 85, startY, 35, rowH, true);
@@ -103,7 +105,6 @@ const Members = () => {
       drawTextInCell('Locker:', 85, startY + rowH*4, 35, rowH, true);
       drawTextInCell(member.lockerFacility ? 'Yes' : 'No', 120, startY + rowH*4, 40, rowH);
 
-      // Photo handling
       try {
         if (member.photoUrl) {
           doc.addImage(member.photoUrl, 'WEBP', 161, startY + 1, 28, 48);
@@ -114,22 +115,20 @@ const Members = () => {
         doc.text('PHOTO', 180, startY + 25, { align: 'center' });
       }
 
-      // Block 2: Library & Payment Details
-      const startY2 = startY + 50 + 5; // 5mm gap
+      const startY2 = startY + 50 + 5;
       doc.setFillColor(240, 240, 240);
-      doc.rect(10, startY2, 190, 8, 'FD'); // Fill and Draw
+      doc.rect(10, startY2, 190, 8, 'FD');
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
       doc.text('Library & Payment Details', 105, startY2 + 5.5, { align: 'center' });
       
       const startY3 = startY2 + 8;
-      doc.rect(10, startY3, 190, 30); // 3 rows
+      doc.rect(10, startY3, 190, 30);
       
       const c1 = 10, c2 = 57.5, c3 = 105, c4 = 152.5;
       doc.line(c2, startY3, c2, startY3 + 30);
       doc.line(c3, startY3, c3, startY3 + 30);
       doc.line(c4, startY3, c4, startY3 + 30);
-      
       doc.line(10, startY3 + 10, 200, startY3 + 10);
       doc.line(10, startY3 + 20, 200, startY3 + 20);
       
@@ -149,27 +148,25 @@ const Members = () => {
       drawTextInCell('Valid Till:', c3, startY3 + rowH*2, wD, rowH, true);
       drawTextInCell(member.expiryDate ? format(parseISO(member.expiryDate), 'dd.MM.yyyy') : '-', c4, startY3 + rowH*2, wD, rowH);
 
-      // Block 3: Outstanding Balances
       let startY4 = startY3 + 30 + 5;
       const memberPayments = payments.filter(p => p.memberId === member.id);
       const totalDue = memberPayments.reduce((sum, p) => sum + (p.dueAmount || 0), 0);
       const totalAdv = memberPayments.reduce((sum, p) => sum + (p.advancedAmount || 0), 0);
 
       if (totalDue > 0 || totalAdv > 0) {
-        doc.setFillColor(255, 245, 235); // Light orange for balances
+        doc.setFillColor(255, 245, 235);
         doc.rect(10, startY4, 190, 8, 'FD');
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(9);
         let balanceText = '';
         if (totalDue > 0) balanceText += `TOTAL DUE: Rs. ${totalDue}    `;
         if (totalAdv > 0) balanceText += `TOTAL ADVANCED: Rs. ${totalAdv}`;
-        doc.text(balanceText, 105, startY4 + 5.5, { align: 'center' });
+        doc.text(sanitizeText(balanceText), 105, startY4 + 5.5, { align: 'center' });
         startY4 += 12;
       } else {
         startY4 += 5;
       }
 
-      // Block 4: Payment History Table
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
       doc.setTextColor(0, 0, 0);
@@ -183,13 +180,13 @@ const Members = () => {
         const tableBody = memberPayments
           .sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime())
           .map(p => [
-            format(parseISO(p.date), 'dd/MM/yyyy'),
+            format(parseISO(p.date), 'dd/MM/yy'),
             `Rs. ${p.amount}`,
             p.customDays ? `${p.customDays}d` : `${p.months}m`,
-            p.paymentMode || 'Cash',
+            sanitizeText(p.paymentMode || 'Cash'),
             p.dueAmount ? `Rs. ${p.dueAmount}` : '-',
             p.advancedAmount ? `Rs. ${p.advancedAmount}` : '-',
-            p.note || '-'
+            sanitizeText(p.note || '-')
           ]);
 
         autoTable(doc, {
@@ -200,7 +197,7 @@ const Members = () => {
           styles: { fontSize: 8, cellPadding: 2 },
           headStyles: { fillColor: [60, 60, 60], textColor: [255, 255, 255] },
           columnStyles: {
-            6: { cellWidth: 50 } // Note column wider
+            6: { cellWidth: 50 }
           }
         });
       }
@@ -215,10 +212,16 @@ const Members = () => {
   const today = new Date();
 
   const sortedAllMembers = [...members].sort((a, b) => {
-    const timeA = (a as any).created_at ? new Date((a as any).created_at).getTime() : ((a as any).createdAt ? new Date((a as any).createdAt).getTime() : (a.startDate ? parseISO(a.startDate).getTime() : 0));
-    const timeB = (b as any).created_at ? new Date((b as any).created_at).getTime() : ((b as any).createdAt ? new Date((b as any).createdAt).getTime() : (b.startDate ? parseISO(b.startDate).getTime() : 0));
-    return timeB - timeA; // descending (newest to oldest)
+    const timeA = a.created_at ? new Date(a.created_at).getTime() : (a.startDate ? parseISO(a.startDate).getTime() : 0);
+    const timeB = b.created_at ? new Date(b.created_at).getTime() : (b.startDate ? parseISO(b.startDate).getTime() : 0);
+    return timeB - timeA;
   });
+
+  const indexMap = useMemo(() => {
+    const m = new Map<string, number>();
+    sortedAllMembers.forEach((member, i) => m.set(member.id, i + 1));
+    return m;
+  }, [sortedAllMembers]);
 
   const filtered = sortedAllMembers.filter(m => {
     const matchSearch = m.fullName.toLowerCase().includes(search.toLowerCase()) || m.phone.includes(search);
@@ -258,7 +261,7 @@ const Members = () => {
       m.shift || '-',
       m.startTime ? `${m.startTime} - ${m.endTime}` : '-',
       m.startDate ? format(parseISO(m.startDate), 'MMM d, yyyy') : '-',
-      format(parseISO(m.expiryDate), 'MMM d, yyyy'),
+      m.expiryDate ? format(parseISO(m.expiryDate), 'MMM d, yyyy') : 'N/A',
       m.status
     ]);
 
@@ -327,7 +330,7 @@ const Members = () => {
             </thead>
             <tbody>
               {paginatedMembers.map((member, i) => {
-                const globalIndex = sortedAllMembers.findIndex(x => x.id === member.id) + 1;
+                const globalIndex = indexMap.get(member.id) ?? 0;
                 return (
                 <motion.tr key={member.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                   <td className="py-3 px-5 text-white/70">{globalIndex}</td>
@@ -337,7 +340,7 @@ const Members = () => {
                   <td className="py-3 px-5 text-white/70">{member.shift || '-'}</td>
                   <td className="py-3 px-5 text-white/70">{member.startTime ? `${member.startTime} - ${member.endTime}` : '-'}</td>
                   <td className="py-3 px-5 text-white/70">{member.startDate ? format(parseISO(member.startDate), 'MMM d, yyyy') : '-'}</td>
-                  <td className="py-3 px-5 text-white/70">{format(parseISO(member.expiryDate), 'MMM d, yyyy')}</td>
+                  <td className="py-3 px-5 text-white/70">{member.expiryDate ? format(parseISO(member.expiryDate), 'MMM d, yyyy') : 'N/A'}</td>
                   <td className="py-3 px-5">
                     <span className={`text-xs px-2.5 py-1 rounded-full font-medium border ${member.status === 'Active' ? 'bg-success/80 text-success-foreground border-success/80' :
                       member.status === 'Expiring Soon' ? 'bg-warning/80 text-warning-foreground border-warning/80' :
@@ -351,7 +354,7 @@ const Members = () => {
                       <Button size="icon" variant="ghost" className="h-8 w-8 text-white hover:bg-white hover:text-black" onClick={() => setSelectedMemberId(member.id)}><User className="w-4 h-4" /></Button>
                       <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:bg-destructive/20 hover:text-destructive" onClick={() => setMemberToDelete(member.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                       <a
-                        href={`https://wa.me/${member.countryCode.replace('+', '')}${member.phone}?text=${encodeURIComponent(`Hello ${member.fullName}, your library membership expires on ${format(parseISO(member.expiryDate), 'MMM d, yyyy')}. Please renew to continue access.`)}`}
+                        href={`https://wa.me/${member.countryCode.replace('+', '')}${member.phone}?text=${encodeURIComponent(`Hello ${member.fullName}, your library membership expires on ${member.expiryDate ? format(parseISO(member.expiryDate), 'MMM d, yyyy') : 'N/A'}. Please renew to continue access.`)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                       >
@@ -370,7 +373,7 @@ const Members = () => {
       {/* Mobile Cards */}
       <div className="md:hidden space-y-3">
         {paginatedMembers.map((member, i) => {
-          const globalIndex = sortedAllMembers.findIndex(x => x.id === member.id) + 1;
+          const globalIndex = indexMap.get(member.id) ?? 0;
           return (
           <motion.div key={member.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="stat-card">
             <div className="flex items-start justify-between mb-2">
@@ -385,11 +388,11 @@ const Members = () => {
                 {member.status}
               </span>
             </div>
-            <p className="text-xs text-white/50 mb-3">Joined {member.startDate ? format(parseISO(member.startDate), 'MMM d, yyyy') : '-'} • Expires {format(parseISO(member.expiryDate), 'MMM d, yyyy')}</p>
+            <p className="text-xs text-white/50 mb-3">Joined {member.startDate ? format(parseISO(member.startDate), 'MMM d, yyyy') : '-'} • Expires {member.expiryDate ? format(parseISO(member.expiryDate), 'MMM d, yyyy') : 'N/A'}</p>
             <div className="flex gap-2">
               <Button size="sm" className="text-xs bg-white/40 text-white hover:bg-white/50 border-0" onClick={() => setSelectedMemberId(member.id)}><User className="w-3 h-3 mr-1" /> ID Card</Button>
               <Button size="sm" variant="outline" className="text-xs text-destructive bg-destructive/10 border-destructive/20 hover:bg-destructive/20 hover:text-destructive" onClick={() => setMemberToDelete(member.id)}><Trash2 className="w-3 h-3 mr-1" /> Delete</Button>
-              <a href={`https://wa.me/${member.countryCode.replace('+', '')}${member.phone}?text=${encodeURIComponent(`Hello ${member.fullName}, your library membership expires on ${format(parseISO(member.expiryDate), 'MMM d, yyyy')}. Please renew to continue access.`)}`} target="_blank" rel="noopener noreferrer">
+              <a href={`https://wa.me/${member.countryCode.replace('+', '')}${member.phone}?text=${encodeURIComponent(`Hello ${member.fullName}, your library membership expires on ${member.expiryDate ? format(parseISO(member.expiryDate), 'MMM d, yyyy') : 'N/A'}. Please renew to continue access.`)}`} target="_blank" rel="noopener noreferrer">
                 <Button size="sm" variant="outline" className="text-xs text-success bg-success/10 border-success/20 hover:bg-success/20 hover:text-success"><MessageSquare className="w-3 h-3 mr-1" /> WhatsApp</Button>
               </a>
             </div>
@@ -595,7 +598,7 @@ const Members = () => {
                       </div>
                       <div className="col-span-2 border-t border-white/10 mt-2 pt-2">
                         <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Valid Till</p>
-                        <p className="font-medium text-sm text-primary">{format(parseISO(member.expiryDate), 'MMM d, yyyy')}</p>
+                        <p className="font-medium text-sm text-primary">{member.expiryDate ? format(parseISO(member.expiryDate), 'MMM d, yyyy') : 'N/A'}</p>
                       </div>
 
                       {/* Payment History Section */}

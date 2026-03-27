@@ -16,7 +16,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
 const Payments = () => {
   const { members, payments, deletedPayments, addPayment, updatePayment, upgradeMember, deletePayment, clearDeletedPayments, updateMember } = useLibrary();
@@ -69,14 +69,14 @@ const Payments = () => {
     try {
       const paymentDate = format(new Date(), 'yyyy-MM-dd');
       
-      // Build a clean, readable note
-      let noteParts = [`${form.purpose}`];
+      // Build a clean, readable note for PDF and display
+      const noteParts = [`${form.purpose}`];
       if (form.note) noteParts.push(form.note);
-      if (form.registrationFee && Number(form.registrationFee) > 0) noteParts.push(`Reg: ₹${form.registrationFee}`);
-      if (form.monthlyFee && Number(form.monthlyFee) > 0) noteParts.push(`Monthly: ₹${form.monthlyFee}`);
-      if (form.discountAmount && Number(form.discountAmount) > 0) noteParts.push(`Disc: ₹${form.discountAmount}`);
+      if (form.registrationFee && Number(form.registrationFee) > 0) noteParts.push(`Reg: Rs. ${form.registrationFee}`);
+      if (form.monthlyFee && Number(form.monthlyFee) > 0) noteParts.push(`Monthly: Rs. ${form.monthlyFee}`);
+      if (form.discountAmount && Number(form.discountAmount) > 0) noteParts.push(`Disc: Rs. ${form.discountAmount}`);
       
-      const finalNote = noteParts.join(' | ');
+      const finalNote = noteParts.join(' | ').replace(/₹/g, 'Rs.');
 
       const paymentData: Omit<Payment, 'id' | 'libraryId'> = {
         memberId: form.memberId,
@@ -159,9 +159,12 @@ const Payments = () => {
 
   const sortedPayments = [...payments].sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
   const sortedDeletedPayments = [...deletedPayments].sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
+  
+  const memberMap = useMemo(() => new Map(members.map(m => [m.id, m])), [members]);
+
   const displayedPayments = (viewDeleted ? sortedDeletedPayments : sortedPayments).filter((payment) => {
     if (!searchTerm) return true;
-    const member = members.find(m => m.id === payment.memberId);
+    const member = memberMap.get(payment.memberId);
     if (!member) return false;
     const searchLower = searchTerm.toLowerCase();
     return member.fullName.toLowerCase().includes(searchLower) || member.phone.includes(searchTerm);
@@ -229,7 +232,7 @@ const Payments = () => {
     doc.text(title, 14, 15);
 
     const tableData = paymentsToExport.map(p => {
-      const member = members.find(m => m.id === p.memberId);
+      const member = memberMap.get(p.memberId);
       return [
         format(parseISO(p.date), 'MMM d, yyyy'),
         member?.fullName ?? 'Unknown',
@@ -362,7 +365,7 @@ const Payments = () => {
             </thead>
             <tbody>
               {paginatedPayments.map((payment, i) => {
-                const member = members.find(m => m.id === payment.memberId);
+                const member = memberMap.get(payment.memberId);
                 const isDue = (payment.dueAmount || 0) > 0;
                 const isAdv = (payment.advancedAmount || 0) > 0;
 
@@ -405,7 +408,7 @@ const Payments = () => {
       {/* Mobile Cards */}
       <div className="md:hidden space-y-3">
         {paginatedPayments.map((payment, i) => {
-          const member = members.find(m => m.id === payment.memberId);
+          const member = memberMap.get(payment.memberId);
           const isDue = (payment.dueAmount || 0) > 0;
           const isAdv = (payment.advancedAmount || 0) > 0;
 
@@ -658,9 +661,9 @@ const Payments = () => {
         <DialogContent className="bg-black/60 backdrop-blur-2xl border-white/10 shadow-[0_16px_64px_0_rgba(0,0,0,0.5)] text-white">
           <DialogHeader><DialogTitle className="text-xl font-display text-white">Clear Deleted Payments</DialogTitle></DialogHeader>
           <div className="space-y-4 my-2">
-            <p className="text-sm text-white/70">Are you sure you want to permanently clear all deleted payments? Enter password to confirm.</p>
+            <p className="text-sm text-white/70">Are you sure you want to permanently clear all deleted payments? Enter your Admin PIN to confirm.</p>
             <div>
-              <Label className="text-white/90 mb-1.5 block">Password</Label>
+              <Label className="text-white/90 mb-1.5 block">Admin PIN</Label>
               <Input type="password" value={clearPassword} onChange={e => setClearPassword(e.target.value)} className="bg-black/20 border-white/10 text-white focus:ring-white/20" />
             </div>
           </div>

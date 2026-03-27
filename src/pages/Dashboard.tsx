@@ -39,10 +39,10 @@ const Dashboard = () => {
   ];
 
   const recentMembers = [...members]
-    .filter(m => m.startDate)
     .sort((a, b) => {
-      try { return parseISO(b.startDate).getTime() - parseISO(a.startDate).getTime(); }
-      catch { return 0; }
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : (a.startDate ? parseISO(a.startDate).getTime() : 0);
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : (b.startDate ? parseISO(b.startDate).getTime() : 0);
+      return timeB - timeA;
     })
     .slice(0, 5);
 
@@ -115,10 +115,10 @@ const Dashboard = () => {
               <div key={member.id} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
                 <div>
                   <p className="font-medium text-sm text-white">{member.fullName}</p>
-                  <p className="text-xs text-white/60">Expires {format(parseISO(member.expiryDate), 'MMM d, yyyy')}</p>
+                  <p className="text-xs text-white/60">Expires {member.expiryDate ? format(parseISO(member.expiryDate), 'MMM d, yyyy') : 'N/A'}</p>
                 </div>
                 <a
-                  href={`https://wa.me/${member.countryCode.replace('+', '')}${member.phone}?text=${encodeURIComponent(`Hello ${member.fullName}, your library membership expires on ${format(parseISO(member.expiryDate), 'MMM d, yyyy')}. Please renew to continue access.`)}`}
+                  href={`https://wa.me/${(member.countryCode || '+91').replace('+', '')}${member.phone}?text=${encodeURIComponent(`Hello ${member.fullName}, your library membership expires on ${member.expiryDate ? format(parseISO(member.expiryDate), 'MMM d, yyyy') : 'N/A'}. Please renew to continue access.`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1.5 text-xs font-medium bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg text-white transition-colors"
