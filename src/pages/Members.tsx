@@ -619,6 +619,7 @@ const Members = () => {
                             endTime: member.endTime || '',
                             lockerFacility: member.lockerFacility || false,
                             idProofNumber: member.idProofNumber || '',
+                            idProofType: member.idProofType,
                             targetExam: member.targetExam || '',
                             discountAmount: member.discountAmount || undefined,
                           });
@@ -737,9 +738,31 @@ const Members = () => {
                             <Switch checked={editForm.lockerFacility} onCheckedChange={c => setEditForm({ ...editForm, lockerFacility: c })} />
                             <Label className="text-[10px] text-white/50 uppercase font-semibold">Locker</Label>
                           </div>
-                          <div className="col-span-1">
+                          <div className="col-span-2">
                             <Label className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">ID Proof</Label>
-                            <Input value={editForm.idProofNumber} onChange={e => setEditForm({ ...editForm, idProofNumber: e.target.value })} className="h-8 bg-black/20 text-sm" />
+                            <div className="flex gap-2">
+                              <Select value={editForm.idProofType as string} onValueChange={v => setEditForm({ ...editForm, idProofType: v as Member['idProofType'], idProofNumber: '' })}>
+                                <SelectTrigger className="w-[140px] h-8 bg-black/20 text-sm border-white/10 text-white"><SelectValue placeholder="Type" /></SelectTrigger>
+                                <SelectContent className="bg-black/80 backdrop-blur-xl border-white/10 text-white">
+                                  <SelectItem value="Aadhaar Card">Aadhaar Card</SelectItem>
+                                  <SelectItem value="PAN Card">PAN Card</SelectItem>
+                                  <SelectItem value="Voter ID">Voter ID</SelectItem>
+                                  <SelectItem value="Driving Licence">Driving Licence</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Input 
+                                disabled={!editForm.idProofType}
+                                value={editForm.idProofNumber} 
+                                onChange={e => setEditForm({ ...editForm, idProofNumber: e.target.value })} 
+                                className="flex-1 h-8 bg-black/20 text-sm border-white/10 text-white disabled:opacity-50" 
+                                placeholder={
+                                  editForm.idProofType === 'Aadhaar Card' ? 'XXXX XXXX XXXX' :
+                                  editForm.idProofType === 'PAN Card' ? 'ABCDE 1234 F' :
+                                  editForm.idProofType === 'Voter ID' ? 'ABC1234567' :
+                                  editForm.idProofType === 'Driving Licence' ? 'DL-142011001...' : 'Select type'
+                                }
+                              />
+                            </div>
                           </div>
                           <div className="col-span-1">
                             <Label className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Target Exam</Label>
@@ -774,7 +797,13 @@ const Members = () => {
                           </div>
                           <div className="col-span-1">
                             <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">ID Proof</p>
-                            <p className="font-medium text-sm text-white/90">{member.idProofNumber || 'N/A'}</p>
+                            <p className="font-medium text-sm text-white/90">
+                              {member.idProofType ? (
+                                <><span className="text-primary text-[10px] font-bold mr-1">{member.idProofType}</span><br/>{member.idProofNumber}</>
+                              ) : (
+                                member.idProofNumber || 'N/A'
+                              )}
+                            </p>
                           </div>
                           <div className="col-span-1">
                             <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Target Exam</p>

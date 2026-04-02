@@ -17,7 +17,7 @@ const AddMember = () => {
   const { addMember, settings, members } = useLibrary();
   const navigate = useNavigate();
   const [form, setForm] = useState({
-    fullName: '', phone: '', countryCode: '+91', address: '', idProofNumber: '',
+    fullName: '', phone: '', countryCode: '+91', address: '', idProofNumber: '', idProofType: '',
     startDate: format(new Date(), 'yyyy-MM-dd'), seatNumber: '', startTime: '09:00', endTime: '18:00', lockerFacility: false,
     targetExam: '', shift: ''
   });
@@ -171,6 +171,7 @@ const AddMember = () => {
         countryCode: form.countryCode,
         address: form.address,
         idProofNumber: form.idProofNumber,
+        idProofType: form.idProofType as Member['idProofType'] || undefined,
         startDate: form.startDate,
         expiryDate: form.startDate,
         months: 0,
@@ -298,9 +299,41 @@ const AddMember = () => {
               <Label className="text-white/90">Address</Label>
               <Textarea value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Enter address" rows={2} className="bg-black/20 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-white/20 resize-none" />
             </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label className="text-white/90">ID Proof (optional)</Label>
+              <div className="flex gap-2">
+                <Select value={form.idProofType} onValueChange={v => setForm(f => ({ ...f, idProofType: v, idProofNumber: '' }))}>
+                  <SelectTrigger className="w-[180px] bg-black/20 border-white/10 text-white focus:ring-white/20"><SelectValue placeholder="Select Type" /></SelectTrigger>
+                  <SelectContent className="bg-black/60 backdrop-blur-xl border-white/10 text-white">
+                    <SelectItem value="Aadhaar Card" className="focus:bg-white/10 focus:text-white">Aadhaar Card</SelectItem>
+                    <SelectItem value="PAN Card" className="focus:bg-white/10 focus:text-white">PAN Card</SelectItem>
+                    <SelectItem value="Voter ID" className="focus:bg-white/10 focus:text-white">Voter ID</SelectItem>
+                    <SelectItem value="Driving Licence" className="focus:bg-white/10 focus:text-white">Driving Licence</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input 
+                  disabled={!form.idProofType}
+                  value={form.idProofNumber} 
+                  onChange={e => setForm(f => ({ ...f, idProofNumber: e.target.value }))} 
+                  placeholder={
+                    form.idProofType === 'Aadhaar Card' ? 'XXXX XXXX XXXX' :
+                    form.idProofType === 'PAN Card' ? 'ABCDE 1234 F' :
+                    form.idProofType === 'Voter ID' ? 'ABC1234567' :
+                    form.idProofType === 'Driving Licence' ? 'DL-1420110012345' : 'Select ID type first'
+                  } 
+                  className="flex-1 bg-black/20 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-white/20 disabled:opacity-50" 
+                />
+              </div>
+            </div>
             <div className="space-y-1.5">
-              <Label className="text-white/90">ID Proof Number (optional)</Label>
-              <Input value={form.idProofNumber} onChange={e => setForm(f => ({ ...f, idProofNumber: e.target.value }))} placeholder="Aadhaar / PAN / DL" className="bg-black/20 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-white/20" />
+              <Label htmlFor="targetExam" className="text-white/90">Target Exam (Optional)</Label>
+              <Input
+                id="targetExam"
+                placeholder="e.g. UPSC, JEE, NEET, SSC"
+                value={form.targetExam}
+                onChange={(e) => setForm({ ...form, targetExam: e.target.value })}
+                className="bg-black/20 focus:bg-black/30 transition-colors border-white/10 text-white placeholder:text-white/30 focus-visible:ring-white/20"
+              />
             </div>
             <div className="flex flex-col space-y-3">
               <Label className="text-white/90">Locker Facility</Label>
@@ -312,24 +345,16 @@ const AddMember = () => {
                 />
                 <span className="text-sm font-medium text-white/70">{form.lockerFacility ? 'Opted In' : 'Not Required'}</span>
               </div>
-              <div className="md:col-span-2 space-y-1.5 pt-2">
-                <Label htmlFor="targetExam" className="text-white/90">Target Exam (Optional)</Label>
-                <Input
-                  id="targetExam"
-                  placeholder="e.g. UPSC, JEE, NEET, SSC"
-                  value={form.targetExam}
-                  onChange={(e) => setForm({ ...form, targetExam: e.target.value })}
-                  className="bg-black/20 focus:-bg-black/30 transition-colors border-white/10 text-white placeholder:text-white/30 focus-visible:ring-white/20"
-                />
+            </div>
+            <div className="sm:col-span-2 grid grid-cols-2 gap-5">
+              <div className="space-y-1.5">
+                <Label className="text-white/90">Start Time</Label>
+                <Input type="time" value={form.startTime} onChange={e => setForm(f => ({ ...f, startTime: e.target.value, seatNumber: '' }))} className="bg-black/20 border-white/10 text-white focus-visible:ring-white/20 [color-scheme:dark]" />
               </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-white/90">Start Time</Label>
-              <Input type="time" value={form.startTime} onChange={e => setForm(f => ({ ...f, startTime: e.target.value, seatNumber: '' }))} className="bg-black/20 border-white/10 text-white focus-visible:ring-white/20 [color-scheme:dark]" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-white/90">End Time</Label>
-              <Input type="time" value={form.endTime} onChange={e => setForm(f => ({ ...f, endTime: e.target.value, seatNumber: '' }))} className="bg-black/20 border-white/10 text-white focus-visible:ring-white/20 [color-scheme:dark]" />
+              <div className="space-y-1.5">
+                <Label className="text-white/90">End Time</Label>
+                <Input type="time" value={form.endTime} onChange={e => setForm(f => ({ ...f, endTime: e.target.value, seatNumber: '' }))} className="bg-black/20 border-white/10 text-white focus-visible:ring-white/20 [color-scheme:dark]" />
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label className="text-white/90">Shift Details (optional)</Label>

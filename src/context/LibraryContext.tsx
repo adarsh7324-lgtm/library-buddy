@@ -13,6 +13,7 @@ export interface Member {
   countryCode: string;
   address: string;
   idProofNumber: string;
+  idProofType?: 'Aadhaar Card' | 'PAN Card' | 'Voter ID' | 'Driving Licence';
   months: number;
   feesPaid: number;
   startDate: string;
