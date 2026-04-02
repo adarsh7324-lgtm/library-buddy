@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLibrary, Staff, StaffSalaryPayment } from '@/context/LibraryContext';
-import { Search, Trash2, User, Printer, Plus, CreditCard, Calendar, Phone, Briefcase, IndianRupee, Camera, Upload, MapPin, Hash, X } from 'lucide-react';
+import { Search, Trash2, User, Printer, Plus, CreditCard, Calendar, Phone, Briefcase, IndianRupee, Camera, Upload, MapPin, Hash, X, RefreshCcw, Pencil } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,6 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { supabase } from '@/lib/supabase';
+import { v4 as uuidv4 } from 'uuid';
 
 const StaffManagement = () => {
   const { staff, staffSalaryPayments, addStaff, updateStaff, deleteStaff, addStaffSalaryPayment, deleteStaffSalaryPayment } = useLibrary();
@@ -22,6 +24,14 @@ const StaffManagement = () => {
   const [phoneError, setPhoneError] = useState('');
   const [staffToDelete, setStaffToDelete] = useState<string | null>(null);
   const [paymentToDelete, setPaymentToDelete] = useState<string | null>(null);
+  
+  const [isEditingStaff, setIsEditingStaff] = useState(false);
+  const [editStaffForm, setEditStaffForm] = useState<Partial<Staff>>({});
+  const [editPhotoBase64, setEditPhotoBase64] = useState<string | null>(null);
+  const [isEditCameraOpen, setIsEditCameraOpen] = useState(false);
+  const editVideoRef = useRef<HTMLVideoElement>(null);
+  const editStreamRef = useRef<MediaStream | null>(null);
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   const [newStaff, setNewStaff] = useState<Omit<Staff, 'id' | 'libraryId'>>({
     fullName: '',
@@ -119,6 +129,76 @@ const StaffManagement = () => {
     setPhotoPreview(null);
     setPhotoBase64(null);
     stopCamera();
+  };
+
+  const stopEditCamera = () => {
+    if (editStreamRef.current) {
+      editStreamRef.current.getTracks().forEach(track => track.stop());
+      editStreamRef.current = null;
+    }
+    setIsEditCameraOpen(false);
+  };
+
+  useEffect(() => {
+    return () => stopEditCamera();
+  }, []);
+
+  const handleEditFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 150;
+          const scale = MAX_WIDTH / img.width;
+          canvas.width = MAX_WIDTH;
+          canvas.height = img.height * scale;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            setEditPhotoBase64(canvas.toDataURL('image/webp', 0.5));
+          }
+        };
+        img.src = reader.result as string;
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const startEditCamera = async () => {
+    if (isMobile) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+      editStreamRef.current = stream;
+      setIsEditCameraOpen(true);
+      setTimeout(() => {
+        if (editVideoRef.current) {
+          editVideoRef.current.srcObject = stream;
+        }
+      }, 100);
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      toast.error("Could not access camera. Please check permissions.");
+    }
+  };
+
+  const captureEditPhoto = () => {
+    if (editVideoRef.current) {
+      const video = editVideoRef.current;
+      const canvas = document.createElement('canvas');
+      const MAX_WIDTH = 150;
+      const scale = MAX_WIDTH / video.videoWidth;
+      canvas.width = MAX_WIDTH;
+      canvas.height = video.videoHeight * scale;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        setEditPhotoBase64(canvas.toDataURL('image/webp', 0.5));
+        stopEditCamera();
+      }
+    }
   };
 
   const handleAddStaff = async () => {
@@ -390,19 +470,83 @@ const StaffManagement = () => {
       </div>
 
       {/* Staff ID Card / Profile Dialog */}
-      <Dialog open={!!selectedStaffId} onOpenChange={(open) => !open && setSelectedStaffId(null)}>
+      <Dialog open={!!selectedStaffId} onOpenChange={(open) => {
+        if (!open) {
+          setSelectedStaffId(null);
+          setIsEditingStaff(false);
+          setEditPhotoBase64(null);
+          stopEditCamera();
+        }
+      }}>
         <DialogContent className="max-w-3xl p-0 bg-transparent border-none shadow-none overflow-y-auto max-h-[95vh]">
           {selectedStaff && (
             <div className="bg-zinc-950/90 backdrop-blur-2xl w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col md:flex-row relative border border-white/10 text-white">
               {/* Left Profile Panel */}
               <div className="w-full md:w-1/3 bg-white/5 p-8 flex flex-col items-center border-b md:border-b-0 md:border-r border-white/10 overflow-y-auto">
-                <div className="w-32 h-32 rounded-2xl bg-primary/20 border-4 border-primary/30 flex items-center justify-center mb-6 shadow-xl overflow-hidden shrink-0">
-                  {selectedStaff.photoUrl ? (
-                    <img src={selectedStaff.photoUrl} alt={selectedStaff.fullName} className="w-full h-full object-cover" />
-                  ) : (
-                    <User className="w-16 h-16 text-primary" />
-                  )}
-                </div>
+                {isEditingStaff ? (
+                  <div className="flex flex-col items-center space-y-4 mb-6 w-full">
+                    {!isEditCameraOpen && (
+                      <div className="relative w-32 h-32 rounded-2xl bg-primary/20 border-4 border-primary/30 flex items-center justify-center shadow-xl overflow-hidden shrink-0 group">
+                        {editPhotoBase64 || selectedStaff.photoUrl ? (
+                          <img src={editPhotoBase64 || selectedStaff.photoUrl} alt="Preview" className="w-full h-full object-cover" />
+                        ) : (
+                          <User className="w-16 h-16 text-primary" />
+                        )}
+                        <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer">
+                          {isMobile ? (
+                            <Label htmlFor="staff-edit-camera-upload" className="cursor-pointer bg-white/20 hover:bg-white/30 text-white rounded-full p-3 transition-colors backdrop-blur-sm">
+                              <Camera className="w-6 h-6" />
+                            </Label>
+                          ) : (
+                            <Button type="button" onClick={startEditCamera} size="icon" variant="ghost" className="bg-white/20 hover:bg-white/30 text-white rounded-full h-12 w-12 transition-colors backdrop-blur-sm pointer-events-auto">
+                              <Camera className="w-6 h-6" />
+                            </Button>
+                          )}
+                          <span className="text-[10px] text-white font-medium mt-1">Change Photo</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {isEditCameraOpen && !isMobile && (
+                      <div className="relative w-full max-w-[200px] rounded-xl overflow-hidden border border-white/10 bg-black aspect-square flex items-center justify-center shadow-lg mx-auto mb-2">
+                        <video ref={editVideoRef} autoPlay playsInline className="w-full h-full object-cover text-white scale-x-[-1]"></video>
+                        <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-2">
+                          <Button type="button" variant="destructive" size="sm" onClick={stopEditCamera} className="h-7 text-xs bg-destructive/80 hover:bg-destructive backdrop-blur-sm px-2">
+                            Cancel
+                          </Button>
+                          <Button type="button" variant="default" size="sm" onClick={captureEditPhoto} className="h-7 text-xs bg-white/20 hover:bg-white/30 text-white border border-white/20 backdrop-blur-sm px-2">
+                            Capture
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {isMobile && (
+                      <input
+                        id="staff-edit-camera-upload"
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={handleEditFileUpload}
+                      />
+                    )}
+
+                    {editPhotoBase64 && !isEditCameraOpen && (
+                      <Button type="button" variant="secondary" size="sm" className="h-7 text-xs bg-white/10 hover:bg-white/20 text-white border border-white/10" onClick={() => setEditPhotoBase64(null)}>
+                        <RefreshCcw className="w-3 h-3 mr-2" /> Restore Original
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="w-32 h-32 rounded-2xl bg-primary/20 border-4 border-primary/30 flex items-center justify-center mb-6 shadow-xl overflow-hidden shrink-0">
+                    {selectedStaff.photoUrl ? (
+                      <img src={selectedStaff.photoUrl} alt={selectedStaff.fullName} className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-16 h-16 text-primary" />
+                    )}
+                  </div>
+                )}
                 <h3 className="font-bold text-xl text-center mb-1 leading-tight">{selectedStaff.fullName}</h3>
                 <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/80 mb-6 px-2 py-0.5 rounded bg-primary/10 border border-primary/20">{selectedStaff.role}</span>
                 
@@ -466,60 +610,200 @@ const StaffManagement = () => {
                     <h2 className="text-2xl font-display font-bold text-primary italic">LIBRARY BUDDY</h2>
                     <p className="text-[10px] tracking-[0.2em] uppercase font-bold text-white/40">Staff Identity Card</p>
                   </div>
-                  <Button variant="outline" size="sm" className="h-8 border-white/10 hover:bg-white/5 text-white/70" onClick={() => window.print()}>
-                    <Printer className="w-4 h-4 mr-2" /> Print
-                  </Button>
+                  {!isEditingStaff ? (
+                    <div className="flex gap-2">
+                       <Button variant="outline" size="sm" className="h-8 border-white/10 hover:bg-white/5 text-white/70" onClick={() => window.print()}>
+                         <Printer className="w-4 h-4 mr-2" /> Print
+                       </Button>
+                       <Button variant="outline" size="sm" className="h-8 bg-primary/10 border-primary/20 text-primary hover:bg-primary/20" onClick={() => {
+                         setIsEditingStaff(true);
+                         setEditStaffForm({
+                           fullName: selectedStaff.fullName,
+                           role: selectedStaff.role,
+                           phone: selectedStaff.phone,
+                           countryCode: selectedStaff.countryCode,
+                           salary: selectedStaff.salary,
+                           status: selectedStaff.status,
+                           idProofNumber: selectedStaff.idProofNumber || '',
+                           address: selectedStaff.address || '',
+                           joiningDate: selectedStaff.joiningDate,
+                         });
+                       }}>
+                         <Pencil className="w-4 h-4 mr-2" /> Edit
+                       </Button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                       <Button variant="ghost" size="sm" className="h-8 text-white/70 hover:text-white" onClick={() => {
+                         setIsEditingStaff(false);
+                         setEditPhotoBase64(null);
+                         stopEditCamera();
+                       }}>
+                         Cancel
+                       </Button>
+                       <Button size="sm" id="staff-save-btn" className="h-8 bg-primary hover:bg-primary/90 text-white" onClick={async () => {
+                         try {
+                           const submitBtn = document.getElementById('staff-save-btn');
+                           if (submitBtn) submitBtn.innerHTML = 'Saving...';
+                           if (submitBtn) submitBtn.setAttribute('disabled', 'true');
+
+                           let finalPhotoUrl = undefined;
+                           if (editPhotoBase64) {
+                             const base64Data = editPhotoBase64.split(',')[1];
+                             const byteCharacters = atob(base64Data);
+                             const byteNumbers = new Array(byteCharacters.length);
+                             for (let i = 0; i < byteCharacters.length; i++) {
+                               byteNumbers[i] = byteCharacters.charCodeAt(i);
+                             }
+                             const byteArray = new Uint8Array(byteNumbers);
+                             const blob = new Blob([byteArray], { type: 'image/webp' });
+
+                             const fileName = `${selectedStaff.libraryId}/${uuidv4()}.webp`;
+
+                             const { error: uploadError } = await supabase.storage
+                               .from('staff-photos')
+                               .upload(fileName, blob, {
+                                 contentType: 'image/webp',
+                                 upsert: false
+                               });
+
+                             if (uploadError) {
+                               console.error("Photo upload failed:", uploadError);
+                               toast.error("Failed to upload new photo. Saving other changes...");
+                             } else {
+                               const { data: publicUrlData } = supabase.storage
+                                 .from('staff-photos')
+                                 .getPublicUrl(fileName);
+                               finalPhotoUrl = publicUrlData.publicUrl;
+                             }
+                           }
+
+                           const payload = finalPhotoUrl ? { ...editStaffForm, photoUrl: finalPhotoUrl } : editStaffForm;
+                           await updateStaff(selectedStaff.id, payload);
+                           
+                           setIsEditingStaff(false);
+                           setEditPhotoBase64(null);
+                           stopEditCamera();
+                           toast.success('Staff details updated');
+                           if (submitBtn) submitBtn.innerHTML = 'Save';
+                           if (submitBtn) submitBtn.removeAttribute('disabled');
+                         } catch (e) {
+                           const submitBtn = document.getElementById('staff-save-btn');
+                           if (submitBtn) submitBtn.innerHTML = 'Save';
+                           if (submitBtn) submitBtn.removeAttribute('disabled');
+                         }
+                       }}>
+                         Save
+                       </Button>
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-8">
-                  {/* Salary Summary Cards */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white/5 p-4 rounded-xl border border-white/5">
-                      <p className="text-[10px] uppercase tracking-wider text-white/40 mb-1 font-bold">Total Paid to Date</p>
-                      <p className="text-xl font-bold font-display">₹{totalPaid.toLocaleString()}</p>
-                    </div>
-                    <div className="bg-white/5 p-4 rounded-xl border border-white/5">
-                      <p className="text-[10px] uppercase tracking-wider text-white/40 mb-1 font-bold">Last Payment</p>
-                      <p className="text-xl font-bold font-display">
-                        {lastPayment ? `₹${lastPayment.amount.toLocaleString()}` : 'No records'}
-                      </p>
-                      {lastPayment && <p className="text-[10px] text-white/30 uppercase mt-1">{format(parseISO(lastPayment.date), 'MMM d, yyyy')}</p>}
-                    </div>
-                  </div>
-
-                  {/* Payment History Section */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-bold flex items-center gap-2"><IndianRupee className="w-4 h-4 text-primary" /> Salary Payments</h4>
+                {!isEditingStaff ? (
+                  <div className="space-y-8">
+                    {/* Salary Summary Cards */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-white/5 p-4 rounded-xl border border-white/5">
+                        <p className="text-[10px] uppercase tracking-wider text-white/40 mb-1 font-bold">Total Paid to Date</p>
+                        <p className="text-xl font-bold font-display">₹{totalPaid.toLocaleString()}</p>
+                      </div>
+                      <div className="bg-white/5 p-4 rounded-xl border border-white/5">
+                        <p className="text-[10px] uppercase tracking-wider text-white/40 mb-1 font-bold">Last Payment</p>
+                        <p className="text-xl font-bold font-display">
+                          {lastPayment ? `₹${lastPayment.amount.toLocaleString()}` : 'No records'}
+                        </p>
+                        {lastPayment && <p className="text-[10px] text-white/30 uppercase mt-1">{format(parseISO(lastPayment.date), 'MMM d, yyyy')}</p>}
+                      </div>
                     </div>
 
-                    <div className="space-y-2 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
-                       {relevantPayments.map((p, idx) => (
-                         <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors group">
-                           <div>
-                             <p className="text-sm font-bold">₹{p.amount.toLocaleString()}</p>
-                             <p className="text-[10px] text-white/40 uppercase font-medium">{format(parseISO(p.date), 'MMMM d, yyyy')} • {p.paymentMode}</p>
+                    {/* Payment History Section */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-bold flex items-center gap-2"><IndianRupee className="w-4 h-4 text-primary" /> Salary Payments</h4>
+                      </div>
+
+                      <div className="space-y-2 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+                         {relevantPayments.map((p, idx) => (
+                           <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors group">
+                             <div>
+                               <p className="text-sm font-bold">₹{p.amount.toLocaleString()}</p>
+                               <p className="text-[10px] text-white/40 uppercase font-medium">{format(parseISO(p.date), 'MMMM d, yyyy')} • {p.paymentMode}</p>
+                             </div>
+                             <div className="flex items-center gap-3">
+                               <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full ${p.status === 'Paid' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'}`}>
+                                 {p.status}
+                               </span>
+                               <Button size="icon" variant="ghost" className="h-7 w-7 opacity-0 group-hover:opacity-100 text-destructive hover:bg-destructive/10" onClick={() => {
+                                 setPaymentToDelete(p.id);
+                               }}>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                               </Button>
+                             </div>
                            </div>
-                           <div className="flex items-center gap-3">
-                             <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full ${p.status === 'Paid' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'}`}>
-                               {p.status}
-                             </span>
-                             <Button size="icon" variant="ghost" className="h-7 w-7 opacity-0 group-hover:opacity-100 text-destructive hover:bg-destructive/10" onClick={() => {
-                               setPaymentToDelete(p.id);
-                             }}>
-                                <Trash2 className="w-3.5 h-3.5" />
-                             </Button>
+                         ))}
+                         {relevantPayments.length === 0 && (
+                           <div className="text-center py-12 text-white/20 border-2 border-dashed border-white/5 rounded-2xl bg-white/[0.02]">
+                             <p className="text-sm italic">No payment history recorded</p>
                            </div>
-                         </div>
-                       ))}
-                       {relevantPayments.length === 0 && (
-                         <div className="text-center py-12 text-white/20 border-2 border-dashed border-white/5 rounded-2xl bg-white/[0.02]">
-                           <p className="text-sm italic">No payment history recorded</p>
-                         </div>
-                       )}
+                         )}
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-4 pt-2">
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-white/70 text-[10px] uppercase font-bold tracking-wider">Full Name</Label>
+                          <Input value={editStaffForm.fullName} onChange={e => setEditStaffForm({ ...editStaffForm, fullName: e.target.value })} className="bg-white/5 border-white/10 text-white h-9" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-white/70 text-[10px] uppercase font-bold tracking-wider">Role</Label>
+                          <Select value={editStaffForm.role} onValueChange={v => setEditStaffForm({ ...editStaffForm, role: v })}>
+                            <SelectTrigger className="bg-white/5 border-white/10 text-white h-9"><SelectValue /></SelectTrigger>
+                            <SelectContent className="bg-zinc-900 border-white/10 text-white">
+                              <SelectItem value="Librarian">Librarian</SelectItem>
+                              <SelectItem value="Helper">Helper</SelectItem>
+                              <SelectItem value="Manager">Manager</SelectItem>
+                              <SelectItem value="Other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-white/70 text-[10px] uppercase font-bold tracking-wider">Status</Label>
+                          <Select value={editStaffForm.status} onValueChange={v => setEditStaffForm({ ...editStaffForm, status: v as Staff['status'] })}>
+                            <SelectTrigger className="bg-white/5 border-white/10 text-white h-9"><SelectValue /></SelectTrigger>
+                            <SelectContent className="bg-zinc-900 border-white/10 text-white">
+                              <SelectItem value="Active">Active</SelectItem>
+                              <SelectItem value="Inactive">Inactive</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-white/70 text-[10px] uppercase font-bold tracking-wider">Monthly Salary (₹)</Label>
+                          <Input type="number" value={editStaffForm.salary || ''} onChange={e => setEditStaffForm({ ...editStaffForm, salary: Number(e.target.value) })} className="bg-white/5 border-white/10 text-white h-9" />
+                        </div>
+                        <div className="space-y-1.5 col-span-2 md:col-span-1">
+                          <Label className="text-white/70 text-[10px] uppercase font-bold tracking-wider">Phone</Label>
+                          <div className="flex gap-2">
+                            <Input className="w-20 bg-white/5 border-white/10 text-white h-9" value={editStaffForm.countryCode} onChange={e => setEditStaffForm({ ...editStaffForm, countryCode: e.target.value })} />
+                            <Input className="flex-1 bg-white/5 border-white/10 text-white h-9" value={editStaffForm.phone} onChange={e => setEditStaffForm({ ...editStaffForm, phone: e.target.value.replace(/\D/g, '') })} />
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-white/70 text-[10px] uppercase font-bold tracking-wider">Joining Date</Label>
+                          <Input type="date" value={editStaffForm.joiningDate} onChange={e => setEditStaffForm({ ...editStaffForm, joiningDate: e.target.value })} className="bg-white/5 border-white/10 text-white h-9 [color-scheme:dark]" />
+                        </div>
+                        <div className="space-y-1.5 col-span-2">
+                          <Label className="text-white/70 text-[10px] uppercase font-bold tracking-wider">ID Proof</Label>
+                          <Input value={editStaffForm.idProofNumber} onChange={e => setEditStaffForm({ ...editStaffForm, idProofNumber: e.target.value })} className="bg-white/5 border-white/10 text-white h-9" />
+                        </div>
+                        <div className="space-y-1.5 col-span-2">
+                          <Label className="text-white/70 text-[10px] uppercase font-bold tracking-wider">Address</Label>
+                          <Textarea value={editStaffForm.address} onChange={e => setEditStaffForm({ ...editStaffForm, address: e.target.value })} className="bg-white/5 border-white/10 text-white min-h-[60px]" />
+                        </div>
+                     </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
