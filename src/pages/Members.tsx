@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLibrary } from '@/context/LibraryContext';
-import { Search, Trash2, MessageSquare, Download, User, Printer } from 'lucide-react';
+import { Search, Trash2, MessageSquare, Download, User, Printer, Camera, RefreshCcw } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { format, parseISO } from 'date-fns';
@@ -14,6 +14,8 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Member } from '@/context/LibraryContext';
+import { supabase } from '@/lib/supabase';
+import { v4 as uuidv4 } from 'uuid';
 
 type FilterType = 'All' | 'Morning' | 'Afternoon' | 'Evening' | 'Night' | 'Full Day' | 'Active' | 'Expired' | 'Expiring Soon';
 
@@ -29,6 +31,85 @@ const Members = () => {
   
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  const [editPhotoBase64, setEditPhotoBase64] = useState<string | null>(null);
+  const [isEditCameraOpen, setIsEditCameraOpen] = useState(false);
+  const editVideoRef = useRef<HTMLVideoElement>(null);
+  const editStreamRef = useRef<MediaStream | null>(null);
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  
+  const stopEditCamera = () => {
+    if (editStreamRef.current) {
+      editStreamRef.current.getTracks().forEach(track => track.stop());
+      editStreamRef.current = null;
+    }
+    setIsEditCameraOpen(false);
+  };
+
+  useEffect(() => {
+    return () => stopEditCamera();
+  }, []);
+
+  const handleEditFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            const MAX_WIDTH = 150;
+            const scale = MAX_WIDTH / img.width;
+            canvas.width = MAX_WIDTH;
+            canvas.height = img.height * scale;
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            setEditPhotoBase64(canvas.toDataURL('image/webp', 0.5));
+          }
+        };
+        img.src = reader.result as string;
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const retakeEditPhoto = () => {
+    setEditPhotoBase64(null);
+  };
+
+  const startEditCamera = async () => {
+    if (isMobile) return;
+    try {
+      setIsEditCameraOpen(true);
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      editStreamRef.current = stream;
+      if (editVideoRef.current) {
+        editVideoRef.current.srcObject = stream;
+        editVideoRef.current.play();
+      }
+    } catch (err) {
+      console.error('Error accessing camera:', err);
+      toast.error('Failed to access camera. Please check permissions.');
+      setIsEditCameraOpen(false);
+    }
+  };
+
+  const captureEditPhoto = () => {
+    if (editVideoRef.current) {
+      const canvas = document.createElement('canvas');
+      const MAX_WIDTH = 150;
+      const scale = MAX_WIDTH / editVideoRef.current.videoWidth;
+      canvas.width = MAX_WIDTH;
+      canvas.height = editVideoRef.current.videoHeight * scale;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(editVideoRef.current, 0, 0, canvas.width, canvas.height);
+        setEditPhotoBase64(canvas.toDataURL('image/webp', 0.5));
+      }
+      stopEditCamera();
+    }
+  };
   
   useEffect(() => {
     setCurrentPage(1);
@@ -429,7 +510,14 @@ const Members = () => {
       )}
 
       {/* ID Card Dialog */}
-      <Dialog open={!!selectedMemberId} onOpenChange={() => setSelectedMemberId(null)}>
+      <Dialog open={!!selectedMemberId} onOpenChange={(open) => {
+        if (!open) {
+          setSelectedMemberId(null);
+          setIsEditingIdCard(false);
+          setEditPhotoBase64(null);
+          stopEditCamera();
+        }
+      }}>
         <DialogContent className="max-w-2xl p-0 bg-transparent border-none shadow-none overflow-y-auto max-h-[90vh]">
           {(() => {
             const member = members.find(m => m.id === selectedMemberId);
@@ -438,13 +526,70 @@ const Members = () => {
             return (
               <div id="printable-id-card" className="bg-black/60 backdrop-blur-2xl w-full rounded-2xl overflow-hidden shadow-[0_16px_64px_0_rgba(0,0,0,0.5)] flex flex-col md:flex-row relative border border-white/10">
                 <div className="w-full md:w-1/3 bg-black/20 p-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-white/10">
-                  <div className="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden border-4 border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] mb-4 bg-black/40 flex items-center justify-center">
-                    {member.photoUrl ? (
-                      <img src={member.photoUrl} alt={member.fullName} className="w-full h-full object-cover" />
-                    ) : (
-                      <User className="w-16 h-16 text-white/30" />
-                    )}
-                  </div>
+                  {isEditingIdCard ? (
+                    <div className="flex flex-col items-center space-y-4 mb-4 w-full">
+                      {!isEditCameraOpen && (
+                        <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden border-4 border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] bg-black/40 flex items-center justify-center group shrink-0">
+                          {editPhotoBase64 || member.photoUrl ? (
+                            <img src={editPhotoBase64 || member.photoUrl} alt="Preview" className="w-full h-full object-cover" />
+                          ) : (
+                            <User className="w-16 h-16 text-white/30" />
+                          )}
+                          <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer">
+                            {isMobile ? (
+                              <Label htmlFor="edit-camera-upload" className="cursor-pointer bg-white/20 hover:bg-white/30 text-white rounded-full p-3 transition-colors backdrop-blur-sm">
+                                <Camera className="w-6 h-6" />
+                              </Label>
+                            ) : (
+                              <Button type="button" onClick={startEditCamera} size="icon" variant="ghost" className="bg-white/20 hover:bg-white/30 text-white rounded-full h-12 w-12 transition-colors backdrop-blur-sm pointer-events-auto">
+                                <Camera className="w-6 h-6" />
+                              </Button>
+                            )}
+                            <span className="text-[10px] text-white font-medium mt-1">Change Photo</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {isEditCameraOpen && !isMobile && (
+                        <div className="relative w-full max-w-[200px] rounded-xl overflow-hidden border border-white/10 bg-black aspect-square flex items-center justify-center shadow-lg mx-auto">
+                          <video ref={editVideoRef} className="w-full h-full object-cover text-white" playsInline muted></video>
+                          <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-2">
+                            <Button type="button" variant="destructive" size="sm" onClick={stopEditCamera} className="h-7 text-xs bg-destructive/80 hover:bg-destructive backdrop-blur-sm px-2">
+                              Cancel
+                            </Button>
+                            <Button type="button" variant="default" size="sm" onClick={captureEditPhoto} className="h-7 text-xs bg-white/20 hover:bg-white/30 text-white border border-white/20 backdrop-blur-sm px-2">
+                              Capture
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {isMobile && (
+                        <input
+                          id="edit-camera-upload"
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={handleEditFileUpload}
+                        />
+                      )}
+                      
+                      {editPhotoBase64 && !isEditCameraOpen && (
+                        <Button type="button" variant="secondary" size="sm" className="h-7 text-xs bg-white/10 hover:bg-white/20 text-white border border-white/10" onClick={retakeEditPhoto}>
+                          <RefreshCcw className="w-3 h-3 mr-2" /> Restore Original
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden border-4 border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] mb-4 bg-black/40 flex items-center justify-center">
+                      {member.photoUrl ? (
+                        <img src={member.photoUrl} alt={member.fullName} className="w-full h-full object-cover" />
+                      ) : (
+                        <User className="w-16 h-16 text-white/30" />
+                      )}
+                    </div>
+                  )}
                   <h3 className="font-bold text-lg text-white text-center leading-tight mb-1">{member.fullName}</h3>
                   <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-bold ${member.status === 'Active' ? 'bg-success/80 text-success-foreground' : member.status === 'Expiring Soon' ? 'bg-warning/80 text-warning-foreground' : 'bg-destructive/80 text-destructive-foreground'}`}>
                     {member.status}
@@ -483,14 +628,62 @@ const Members = () => {
                       </div>
                     ) : (
                       <div className="flex gap-2">
-                        <Button size="sm" variant="ghost" className="h-8 text-white hover:bg-white/10" onClick={() => setIsEditingIdCard(false)}>Cancel</Button>
-                        <Button size="sm" className="h-8 bg-primary hover:bg-primary/90 text-white" onClick={async () => {
+                        <Button size="sm" variant="ghost" className="h-8 text-white hover:bg-white/10" onClick={() => {
+                          setIsEditingIdCard(false);
+                          setEditPhotoBase64(null);
+                          stopEditCamera();
+                        }}>Cancel</Button>
+                        <Button size="sm" id="save-btn" className="h-8 bg-primary hover:bg-primary/90 text-white flex items-center gap-2" onClick={async () => {
                           try {
-                            await updateMember(member.id, editForm);
+                            const submitBtn = document.getElementById('save-btn');
+                            if (submitBtn) submitBtn.innerHTML = 'Saving...';
+                            if (submitBtn) submitBtn.setAttribute('disabled', 'true');
+
+                            let finalPhotoUrl = undefined;
+                            
+                            if (editPhotoBase64) {
+                              const base64Data = editPhotoBase64.split(',')[1];
+                              const byteCharacters = atob(base64Data);
+                              const byteNumbers = new Array(byteCharacters.length);
+                              for (let i = 0; i < byteCharacters.length; i++) {
+                                byteNumbers[i] = byteCharacters.charCodeAt(i);
+                              }
+                              const byteArray = new Uint8Array(byteNumbers);
+                              const blob = new Blob([byteArray], { type: 'image/webp' });
+
+                              const fileName = `${member.libraryId}/${uuidv4()}.webp`;
+
+                              const { error: uploadError } = await supabase.storage
+                                .from('member-photos')
+                                .upload(fileName, blob, {
+                                  contentType: 'image/webp',
+                                  upsert: false
+                                });
+
+                              if (uploadError) {
+                                console.error("Photo upload failed:", uploadError);
+                                toast.error("Failed to upload new photo. Saving other changes...");
+                              } else {
+                                const { data: publicUrlData } = supabase.storage
+                                  .from('member-photos')
+                                  .getPublicUrl(fileName);
+                                finalPhotoUrl = publicUrlData.publicUrl;
+                              }
+                            }
+
+                            const payload = finalPhotoUrl ? { ...editForm, photoUrl: finalPhotoUrl } : editForm;
+                            await updateMember(member.id, payload);
+                            
                             setIsEditingIdCard(false);
+                            setEditPhotoBase64(null);
+                            stopEditCamera();
                             toast.success('Member updated');
+                            if (submitBtn) submitBtn.innerHTML = 'Save';
+                            if (submitBtn) submitBtn.removeAttribute('disabled');
                           } catch (e) {
-                            // Error is handled in context
+                            const submitBtn = document.getElementById('save-btn');
+                            if (submitBtn) submitBtn.innerHTML = 'Save';
+                            if (submitBtn) submitBtn.removeAttribute('disabled');
                           }
                         }}>Save</Button>
                       </div>
