@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { Plus, IndianRupee, Calendar, Download, Check, ChevronsUpDown, Trash2, Search } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, differenceInDays } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
@@ -23,7 +23,7 @@ const Payments = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [openMemberSelect, setOpenMemberSelect] = useState(false);
   const [form, setForm] = useState<{
-    memberId: string; amount: string; months: string; customDays: string; note: string; paymentMode: 'Cash' | 'Online';
+    memberId: string; amount: string; startDate: string; endDate: string; note: string; paymentMode: 'Cash' | 'Online';
     amountType: 'Regular' | 'Due' | 'Advanced';
     typeAmount: string;
     clearOutstanding: boolean;
@@ -31,10 +31,11 @@ const Payments = () => {
     registrationFee: string;
     monthlyFee: string;
     discountAmount: string;
+    restDayFee: string;
   }>({
-    memberId: '', amount: '', months: '', customDays: '', note: '', paymentMode: 'Cash',
+    memberId: '', amount: '', startDate: '', endDate: '', note: '', paymentMode: 'Cash',
     amountType: 'Regular', typeAmount: '', clearOutstanding: false,
-    purpose: 'Renewal', registrationFee: '', monthlyFee: '', discountAmount: ''
+    purpose: 'Renewal', registrationFee: '', monthlyFee: '', discountAmount: '', restDayFee: ''
   });
   const [viewDeleted, setViewDeleted] = useState(false);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
@@ -56,12 +57,13 @@ const Payments = () => {
   }, [searchTerm, viewDeleted]);
 
   const handleSave = async () => {
-    if (!form.memberId || !form.amount || !form.months) {
+    if (!form.memberId || !form.amount || !form.startDate || !form.endDate) {
       toast.error('Please fill all required fields');
       return;
     }
-    if (form.months === 'custom' && !form.customDays) {
-      toast.error('Please specify custom days count');
+    const computedDays = differenceInDays(parseISO(form.endDate), parseISO(form.startDate));
+    if (computedDays <= 0) {
+      toast.error('End date must be after start date');
       return;
     }
 
@@ -74,6 +76,7 @@ const Payments = () => {
       if (form.note) noteParts.push(form.note);
       if (form.registrationFee && Number(form.registrationFee) > 0) noteParts.push(`Reg: Rs. ${form.registrationFee}`);
       if (form.monthlyFee && Number(form.monthlyFee) > 0) noteParts.push(`Monthly: Rs. ${form.monthlyFee}`);
+      if (form.restDayFee && Number(form.restDayFee) > 0) noteParts.push(`Rest Day: Rs. ${form.restDayFee}`);
       if (form.discountAmount && Number(form.discountAmount) > 0) noteParts.push(`Disc: Rs. ${form.discountAmount}`);
       
       const finalNote = noteParts.join(' | ').replace(/₹/g, 'Rs.');
@@ -81,7 +84,8 @@ const Payments = () => {
       const paymentData: Omit<Payment, 'id' | 'libraryId'> = {
         memberId: form.memberId,
         amount: Number(form.amount),
-        months: form.months === 'custom' ? 0 : Number(form.months),
+        months: 0,
+        customDays: computedDays,
         paymentMode: form.paymentMode,
         date: paymentDate,
         note: finalNote,
@@ -96,10 +100,6 @@ const Payments = () => {
         ));
       }
 
-      if (form.months === 'custom') {
-        paymentData.customDays = Number(form.customDays);
-      }
-
       await addPayment(paymentData);
 
       // Update Member Record with Registration Fee and Discount if applicable
@@ -110,10 +110,8 @@ const Payments = () => {
         });
       }
 
-      if (form.months === 'custom' && Number(form.customDays) > 0) {
-        await upgradeMember(form.memberId, 0, Number(form.customDays));
-      } else if (Number(form.months) > 0) {
-        await upgradeMember(form.memberId, Number(form.months));
+      if (computedDays > 0) {
+        await upgradeMember(form.memberId, 0, computedDays);
       }
 
       toast.success('Payment registered successfully');
@@ -125,13 +123,10 @@ const Payments = () => {
 
         if (Number(form.registrationFee) > 0) message += `💳 Registration Fee: ₹${form.registrationFee}\n`;
         if (Number(form.monthlyFee) > 0) message += `📅 Monthly Fee: ₹${form.monthlyFee}\n`;
+        if (Number(form.restDayFee) > 0) message += `🛌 Rest Day Payment: ₹${form.restDayFee}\n`;
         if (Number(form.discountAmount) > 0) message += `🏷️ Discount on Monthly Fee: ₹${form.discountAmount}\n`;
 
-        if (form.months === 'custom' && Number(form.customDays) > 0) {
-          message += `⏳ Membership Duration: ${form.customDays} day(s)\n`;
-        } else if (Number(form.months) > 0) {
-          message += `⏳ Membership Duration: ${form.months} month(s)\n`;
-        }
+        message += `⏳ Membership Duration: ${computedDays} day(s) (${format(parseISO(form.startDate), 'dd MMM yyyy')} – ${format(parseISO(form.endDate), 'dd MMM yyyy')})\n`;
 
         if (paymentData.dueAmount > 0) message += `⏳ Due Amount Tracked: ₹${paymentData.dueAmount}\n`;
         if (paymentData.advancedAmount > 0) message += `💰 Advanced Deposit Tracked: ₹${paymentData.advancedAmount}\n`;
@@ -149,7 +144,7 @@ const Payments = () => {
       }
 
       setDialogOpen(false);
-      setForm({ memberId: '', amount: '', months: '', customDays: '', note: '', paymentMode: 'Cash', amountType: 'Regular', typeAmount: '', clearOutstanding: false, purpose: 'Renewal', registrationFee: '', monthlyFee: '', discountAmount: '' });
+      setForm({ memberId: '', amount: '', startDate: '', endDate: '', note: '', paymentMode: 'Cash', amountType: 'Regular', typeAmount: '', clearOutstanding: false, purpose: 'Renewal', registrationFee: '', monthlyFee: '', discountAmount: '', restDayFee: '' });
     } catch (error) {
       // Handled in context
     } finally {
@@ -542,25 +537,26 @@ const Payments = () => {
               </Popover>
             </div>
 
-            <div>
-              <Label className="text-white/90 mb-1.5 block">Duration *</Label>
-              <Select value={form.months} onValueChange={v => setForm(f => ({ ...f, months: v, customDays: '' }))}>
-                <SelectTrigger className="bg-black/20 border-white/10 text-white focus:ring-white/20"><SelectValue placeholder="Select months" /></SelectTrigger>
-                <SelectContent className="bg-black/80 backdrop-blur-xl border-white/10 text-white">
-                  {[0, 1, 2, 3, 6, 12].map(m => <SelectItem key={m} value={String(m)} className="focus:bg-white/10 focus:text-white cursor-pointer">{m} month{m !== 1 ? 's' : ''}</SelectItem>)}
-                  <SelectItem value="custom" className="focus:bg-white/10 focus:text-white cursor-pointer xl:border-t xl:border-white/10 xl:mt-1 xl:pt-1">Custom (Days)</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-white/90 mb-1.5 block">Start Date *</Label>
+                <Input type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} className="bg-black/20 border-white/10 text-white focus-visible:ring-white/20 [color-scheme:dark]" />
+              </div>
+              <div>
+                <Label className="text-white/90 mb-1.5 block">End Date *</Label>
+                <Input type="date" value={form.endDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} className="bg-black/20 border-white/10 text-white focus-visible:ring-white/20 [color-scheme:dark]" />
+              </div>
             </div>
 
-            {form.months === 'custom' && (
+            {form.startDate && form.endDate && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
-                <Label className="text-white/90 mb-1.5 block">Number of Days *</Label>
-                <Input type="number" min="1" value={form.customDays} onChange={e => setForm(f => ({ ...f, customDays: e.target.value }))} placeholder="e.g. 15" className="bg-black/20 border-white/10 text-white placeholder:text-white/30" />
+                <span className={cn("text-xs font-bold px-3 py-1 rounded-full border shadow-sm inline-block", differenceInDays(parseISO(form.endDate), parseISO(form.startDate)) <= 0 ? "bg-destructive/10 text-destructive border-destructive/20" : "bg-primary/10 text-primary border-primary/20")}>
+                  ⏳ Duration: {differenceInDays(parseISO(form.endDate), parseISO(form.startDate))} day(s)
+                </span>
               </motion.div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <Label className="text-white/90 mb-1.5 block">Registration Fee (₹)</Label>
                 <Input type="number" value={form.registrationFee} onChange={e => setForm(f => ({ ...f, registrationFee: e.target.value }))} placeholder="0" className="bg-black/20 border-white/10 text-white placeholder:text-white/30" />
@@ -573,13 +569,17 @@ const Payments = () => {
                 <Label className="text-white/90 mb-1.5 block">Discount on Monthly Fee (₹)</Label>
                 <Input type="number" value={form.discountAmount} onChange={e => setForm(f => ({ ...f, discountAmount: e.target.value }))} placeholder="0" className="bg-black/20 border-white/10 text-white placeholder:text-white/30" />
               </div>
+              <div>
+                <Label className="text-white/90 mb-1.5 block">Rest Day Payment (₹)</Label>
+                <Input type="number" value={form.restDayFee} onChange={e => setForm(f => ({ ...f, restDayFee: e.target.value }))} placeholder="0" className="bg-black/20 border-white/10 text-white placeholder:text-white/30" />
+              </div>
             </div>
 
             {/* Auto-calculated display */}
             <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 flex justify-between items-center shadow-inner">
                <div className="text-xs uppercase tracking-wider text-white/50 font-bold">Registration Net Fee</div>
                <div className="text-xl font-bold text-primary italic drop-shadow-sm">
-                 ₹{(Number(form.registrationFee || 0) + Number(form.monthlyFee || 0) - Number(form.discountAmount || 0)).toLocaleString()}
+                 ₹{(Number(form.registrationFee || 0) + Number(form.monthlyFee || 0) + Number(form.restDayFee || 0) - Number(form.discountAmount || 0)).toLocaleString()}
                </div>
             </div>
 

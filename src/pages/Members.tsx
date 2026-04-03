@@ -8,7 +8,7 @@ import { motion } from 'framer-motion';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -16,6 +16,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Member } from '@/context/LibraryContext';
 import { supabase } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
+import { timeToMinutes } from '@/lib/utils';
 
 type FilterType = 'All' | 'Morning' | 'Afternoon' | 'Evening' | 'Night' | 'Full Day' | 'Active' | 'Expired' | 'Expiring Soon';
 
@@ -114,6 +115,42 @@ const Members = () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [search, filter]);
+  
+  const availableSeatsByRoom = useMemo(() => {
+    if (!settings?.rooms || settings.rooms.length === 0) return {};
+
+    const availableByRoom: { [key: string]: string[] } = {};
+    const filterStartMins = editForm.startTime ? timeToMinutes(editForm.startTime) : 0;
+    const filterEndMins = editForm.endTime ? timeToMinutes(editForm.endTime) : 0;
+
+    settings.rooms.forEach(room => {
+      const roomSeats = [];
+      for (let i = 1; i <= room.capacity; i++) {
+        const seatIdStr = `${room.name} - Seat ${i}`;
+        const isOccupied = members.some(m => {
+          if (m.id === selectedMemberId) return false;
+          
+          if (m.status === 'Expired') return false;
+          if (m.seatNumber !== seatIdStr) return false;
+          if (!m.startTime || !m.endTime) return false;
+
+          const memberStartMins = timeToMinutes(m.startTime);
+          const memberEndMins = timeToMinutes(m.endTime);
+
+          return Math.max(filterStartMins, memberStartMins) < Math.min(filterEndMins, memberEndMins);
+        });
+
+        if (!isOccupied) {
+          roomSeats.push(seatIdStr);
+        }
+      }
+      if (roomSeats.length > 0) {
+        availableByRoom[room.name] = roomSeats;
+      }
+    });
+
+    return availableByRoom;
+  }, [settings?.rooms, members, editForm.startTime, editForm.endTime, selectedMemberId]);
   
   const printIdCardPdf = (member: Member) => {
     try {
@@ -705,7 +742,22 @@ const Members = () => {
                           </div>
                           <div className="col-span-1">
                             <Label className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Seat Number</Label>
-                            <Input value={editForm.seatNumber} onChange={e => setEditForm({ ...editForm, seatNumber: e.target.value })} className="h-8 bg-black/20 text-sm" />
+                            {(!settings?.rooms || settings.rooms.length === 0) ? (
+                              <Input value={editForm.seatNumber} onChange={e => setEditForm({ ...editForm, seatNumber: e.target.value })} className="h-8 bg-black/20 text-sm" />
+                            ) : (
+                              <Select value={editForm.seatNumber} onValueChange={v => setEditForm({ ...editForm, seatNumber: v })}>
+                                <SelectTrigger className="h-8 bg-black/20 text-sm"><SelectValue placeholder="Seat" /></SelectTrigger>
+                                <SelectContent>
+                                  {Object.keys(availableSeatsByRoom).length === 0 && <SelectItem value="_disabled" disabled className="text-white/50">No seats</SelectItem>}
+                                  {Object.entries(availableSeatsByRoom).map(([roomName, seats]) => (
+                                    <SelectGroup key={roomName}>
+                                      <SelectLabel className="text-white/50 font-semibold text-xs py-1 px-2">{roomName}</SelectLabel>
+                                      {seats.map(seat => <SelectItem key={seat} value={seat}>{seat}</SelectItem>)}
+                                    </SelectGroup>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
                           </div>
                           <div className="col-span-1">
                             <Label className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Shift</Label>
