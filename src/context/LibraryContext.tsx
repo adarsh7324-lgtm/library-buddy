@@ -572,8 +572,30 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const updateMember = useCallback(async (id: string, data: Partial<Member>) => {
     try {
       if (!activeLibraryId) throw new Error('No active library session');
-      const { error } = await supabase.from('members').update(data).eq('id', id).eq('libraryId', activeLibraryId);
-      if (error) throw error;
+      
+      let payload: any = { ...data };
+      let attempts = 0;
+      
+      while (attempts < 5) {
+        const { error } = await supabase.from('members').update(payload).eq('id', id).eq('libraryId', activeLibraryId);
+        
+        if (error) {
+          if (error.message?.includes("Could not find the") && error.message?.includes("column")) {
+             const match = error.message.match(/'([^']+)' column/);
+             if (match && match[1]) {
+                const missingCol = match[1];
+                console.warn(`[Self-healing DB] Stripping missing column '${missingCol}' from members to prevent crash.`);
+                delete payload[missingCol];
+                if (Object.keys(payload).length === 0) break; // Nothing left to update
+                attempts++;
+                continue; // retry
+             }
+          }
+          throw error;
+        }
+        break; // Success
+      }
+
       setMembers(prev => prev.map(m => m.id === id ? { ...m, ...data } : m));
     } catch (error) {
       console.error('Error updating member:', error);
@@ -643,14 +665,39 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const addPayment = useCallback(async (payment: Omit<Payment, 'id' | 'libraryId'>) => {
     if (!activeLibraryId) throw new Error('Cannot register payment: No active library session');
     try {
-      // Safely strip startDate from payload to prevent crashes on un-migrated DBs
-      const { startDate, ...payload } = payment;
-      const { data, error } = await supabase.from('payments').insert([{
-        ...payload,
-        libraryId: activeLibraryId
-      }]).select().single();
-      if (error) throw error;
-      setPayments(prev => [{ ...data, startDate } as Payment, ...prev]);
+      let payload: any = { ...payment };
+      delete payload.startDate; // known missing column
+
+      let attempts = 0;
+      let finalData = null;
+
+      while (attempts < 5) {
+        const { data, error } = await supabase.from('payments').insert([{
+          ...payload,
+          libraryId: activeLibraryId
+        }]).select().single();
+
+        if (error) {
+          if (error.message?.includes("Could not find the") && error.message?.includes("column")) {
+             const match = error.message.match(/'([^']+)' column/);
+             if (match && match[1]) {
+                const missingCol = match[1];
+                console.warn(`[Self-healing DB] Stripping missing column '${missingCol}' to prevent crash.`);
+                delete payload[missingCol];
+                attempts++;
+                continue; // retry
+             }
+          }
+          throw error;
+        } else {
+          finalData = data;
+          break; // Success
+        }
+      }
+
+      if (!finalData) throw new Error("Failed to insert payment after multiple schema corrections.");
+
+      setPayments(prev => [{ ...finalData, ...payment } as Payment, ...prev]);
     } catch (error: any) {
       console.error('Error adding payment:', error);
       toast.error('Failed to add payment');
@@ -770,15 +817,34 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const updatePayment = useCallback(async (id: string, updates: Partial<Payment>) => {
     if (!activeLibraryId) throw new Error('No active library session');
     try {
-      const { startDate, ...safeUpdates } = updates;
+      let safeUpdates: any = { ...updates };
+      delete safeUpdates.startDate;
       
-      const { error } = await supabase
-        .from('payments')
-        .update(safeUpdates)
-        .eq('id', id)
-        .eq('libraryId', activeLibraryId);
+      let attempts = 0;
+      
+      while (attempts < 5) {
+        const { error } = await supabase
+          .from('payments')
+          .update(safeUpdates)
+          .eq('id', id)
+          .eq('libraryId', activeLibraryId);
 
-      if (error) throw error;
+        if (error) {
+          if (error.message?.includes("Could not find the") && error.message?.includes("column")) {
+             const match = error.message.match(/'([^']+)' column/);
+             if (match && match[1]) {
+                const missingCol = match[1];
+                console.warn(`[Self-healing DB] Stripping missing column '${missingCol}' from payments to prevent crash.`);
+                delete safeUpdates[missingCol];
+                if (Object.keys(safeUpdates).length === 0) break; // Nothing left to update
+                attempts++;
+                continue; // retry
+             }
+          }
+          throw error;
+        }
+        break; // Success
+      }
 
       setPayments(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
     } catch (error) {
