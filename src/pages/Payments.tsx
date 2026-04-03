@@ -113,6 +113,8 @@ const Payments = () => {
 
       if (computedDays > 0) {
         await upgradeMember(form.memberId, 0, computedDays, form.startDate);
+        // Force-set the exact end date to match what the user selected
+        await updateMember(form.memberId, { expiryDate: form.endDate });
       }
 
       toast.success('Payment registered successfully');
