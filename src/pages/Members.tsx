@@ -27,6 +27,7 @@ const Members = () => {
   const [filter, setFilter] = useState<FilterType>('All');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [isEditingIdCard, setIsEditingIdCard] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Member>>({});
   const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
   
@@ -133,6 +134,7 @@ const Members = () => {
           if (m.status === 'Expired') return false;
           if (m.seatNumber !== seatIdStr) return false;
           if (!m.startTime || !m.endTime) return false;
+          if (!editForm.startTime || !editForm.endTime) return false;
 
           const memberStartMins = timeToMinutes(m.startTime);
           const memberEndMins = timeToMinutes(m.endTime);
@@ -671,12 +673,9 @@ const Members = () => {
                           setEditPhotoBase64(null);
                           stopEditCamera();
                         }}>Cancel</Button>
-                        <Button size="sm" id="save-btn" className="h-8 bg-primary hover:bg-primary/90 text-white flex items-center gap-2" onClick={async () => {
+                        <Button size="sm" id="save-btn" disabled={isSaving} className="h-8 bg-primary hover:bg-primary/90 text-white flex items-center gap-2" onClick={async () => {
                           try {
-                            const submitBtn = document.getElementById('save-btn');
-                            if (submitBtn) submitBtn.innerHTML = 'Saving...';
-                            if (submitBtn) submitBtn.setAttribute('disabled', 'true');
-
+                            setIsSaving(true);
                             let finalPhotoUrl = undefined;
                             
                             if (editPhotoBase64) {
@@ -716,14 +715,12 @@ const Members = () => {
                             setEditPhotoBase64(null);
                             stopEditCamera();
                             toast.success('Member updated');
-                            if (submitBtn) submitBtn.innerHTML = 'Save';
-                            if (submitBtn) submitBtn.removeAttribute('disabled');
                           } catch (e) {
-                            const submitBtn = document.getElementById('save-btn');
-                            if (submitBtn) submitBtn.innerHTML = 'Save';
-                            if (submitBtn) submitBtn.removeAttribute('disabled');
+                            console.error(e);
+                          } finally {
+                            setIsSaving(false);
                           }
-                        }}>Save</Button>
+                        }}>{isSaving ? 'Saving...' : 'Save'}</Button>
                       </div>
                     )}
                   </div>

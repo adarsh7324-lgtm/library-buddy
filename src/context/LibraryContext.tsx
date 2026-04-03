@@ -58,6 +58,7 @@ export interface Payment {
   createdAt?: string;
   dueAmount?: number;
   advancedAmount?: number;
+  startDate?: string;
 }
 
 export interface DeletedPayment extends Payment {
@@ -77,7 +78,7 @@ interface LibraryContextType {
   addMember: (member: Omit<Member, 'id' | 'libraryId'>, photoBase64?: string) => Promise<string>;
   updateMember: (id: string, member: Partial<Member>) => Promise<void>;
   deleteMember: (id: string) => Promise<void>;
-  upgradeMember: (id: string, additionalMonths: number, additionalDays?: number) => Promise<void>;
+  upgradeMember: (id: string, additionalMonths: number, additionalDays?: number, startDate?: string) => Promise<void>;
   addPayment: (payment: Omit<Payment, 'id' | 'libraryId'>) => Promise<void>;
   updatePayment: (id: string, updates: Partial<Payment>) => Promise<void>;
   deletePayment: (id: string) => Promise<void>;
@@ -594,14 +595,25 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     }
   }, [activeLibraryId]);
 
-  const upgradeMember = useCallback(async (id: string, additionalMonths: number, additionalDays?: number) => {
+  const upgradeMember = useCallback(async (id: string, additionalMonths: number, additionalDays?: number, startDate?: string) => {
     try {
       if (!activeLibraryId) throw new Error('No active library session');
       const { data: member, error: memberFetchErr } = await supabase.from('members').select('*').eq('id', id).eq('libraryId', activeLibraryId).single();
       if (memberFetchErr || !member) throw new Error('Member not found from remote server');
 
       const currentExpiry = new Date(member.expiryDate);
-      const baseDate = currentExpiry > new Date() ? currentExpiry : new Date();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      let baseDate = currentExpiry > today ? currentExpiry : today;
+      if (startDate) {
+        const providedStartDate = new Date(startDate);
+        providedStartDate.setHours(0, 0, 0, 0);
+        if (providedStartDate > baseDate) {
+           baseDate = providedStartDate;
+        }
+      }
+
       const newExpiry = additionalDays
         ? addDays(baseDate, additionalDays)
         : addMonths(baseDate, additionalMonths);
@@ -673,10 +685,21 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         today.setHours(0, 0, 0, 0);
 
         let newExpiry = new Date(member.expiryDate);
-        if (paymentToDel.customDays && paymentToDel.customDays > 0) {
-          newExpiry = subDays(newExpiry, paymentToDel.customDays);
-        } else if (paymentToDel.months > 0) {
-          newExpiry = subMonths(newExpiry, paymentToDel.months);
+        if (paymentToDel.startDate) {
+          // If we know the exact start date, rolling back is simply setting it just before the start date (or keeping current if other payments cover it)
+          // A naive rollback simply subtracts the days, but ideally you'd look at the previous payment.
+          // Since we can't reliably know the exact previous expiry without an event log, we subtract the days.
+          if (paymentToDel.customDays && paymentToDel.customDays > 0) {
+            newExpiry = subDays(newExpiry, paymentToDel.customDays);
+          } else if (paymentToDel.months > 0) {
+            newExpiry = subMonths(newExpiry, paymentToDel.months);
+          }
+        } else {
+          if (paymentToDel.customDays && paymentToDel.customDays > 0) {
+            newExpiry = subDays(newExpiry, paymentToDel.customDays);
+          } else if (paymentToDel.months > 0) {
+            newExpiry = subMonths(newExpiry, paymentToDel.months);
+          }
         }
 
         const newExpiryFormatted = format(newExpiry, 'yyyy-MM-dd');

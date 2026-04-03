@@ -12,8 +12,7 @@ const Dashboard = () => {
   const activeMembers = members.filter(m => m.status === 'Active');
   const expiredMembers = members.filter(m => m.status === 'Expired');
   const expiringSoon = members.filter(m => m.status === 'Expiring Soon');
-
-  const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
+  const totalRevenue = payments.reduce((sum, p) => sum + p.amount - (p.dueAmount || 0), 0);
 
   const stats = [
     { label: 'Active Members', value: activeMembers.length, icon: Users, color: 'text-success', path: '/members' },

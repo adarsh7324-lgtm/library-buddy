@@ -91,6 +91,7 @@ const Payments = () => {
         note: finalNote,
         dueAmount: form.amountType === 'Due' ? Number(form.typeAmount) : 0,
         advancedAmount: form.amountType === 'Advanced' ? Number(form.typeAmount) : 0,
+        startDate: form.startDate,
       };
 
       if (form.clearOutstanding) {
@@ -111,7 +112,7 @@ const Payments = () => {
       }
 
       if (computedDays > 0) {
-        await upgradeMember(form.memberId, 0, computedDays);
+        await upgradeMember(form.memberId, 0, computedDays, form.startDate);
       }
 
       toast.success('Payment registered successfully');
@@ -265,8 +266,7 @@ const Payments = () => {
     let online = 0;
 
     payments.forEach(payment => {
-      if (!payment.createdAt) return;
-      const paymentTime = new Date(payment.createdAt);
+      const paymentTime = payment.createdAt ? new Date(payment.createdAt) : new Date(payment.date);
       if (paymentTime >= startOfBusinessDay) {
         if (payment.paymentMode === 'Online') {
           online += payment.amount;
@@ -351,7 +351,7 @@ const Payments = () => {
               <tr className="border-b border-white/10 bg-black/20">
                 <th className="text-left py-4 px-5 font-medium text-white/70">Date</th>
                 <th className="text-left py-4 px-5 font-medium text-white/70">Member</th>
-                <th className="text-left py-4 px-5 font-medium text-white/70">Months</th>
+                <th className="text-left py-4 px-5 font-medium text-white/70">Duration</th>
                 <th className="text-left py-4 px-5 font-medium text-white/70">Mode</th>
                 <th className="text-left py-4 px-5 font-medium text-white/70">Amount</th>
                 <th className="text-left py-4 px-5 font-medium text-white/70">Note</th>
