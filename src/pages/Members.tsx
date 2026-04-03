@@ -661,6 +661,7 @@ const Members = () => {
                             idProofType: member.idProofType,
                             targetExam: member.targetExam || '',
                             discountAmount: member.discountAmount || undefined,
+                            expiryDate: member.expiryDate || '',
                           });
                         }}>
                           Edit
@@ -869,10 +870,19 @@ const Members = () => {
                         <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Joined</p>
                         <p className="font-medium text-sm text-white/90">{member.startDate ? format(parseISO(member.startDate), 'MMM d, yyyy') : 'N/A'}</p>
                       </div>
-                      <div className="col-span-2 border-t border-white/10 mt-2 pt-2">
-                        <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Valid Till</p>
-                        <p className="font-medium text-sm text-primary">{member.expiryDate ? format(parseISO(member.expiryDate), 'MMM d, yyyy') : 'N/A'}</p>
-                      </div>
+                      {isEditingIdCard ? (
+                        <>
+                          <div className="col-span-2 border-t border-white/10 mt-2 pt-2">
+                            <Label className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Valid Till</Label>
+                            <Input type="date" value={editForm.expiryDate} onChange={e => setEditForm({ ...editForm, expiryDate: e.target.value })} className="h-8 bg-black/20 text-sm [color-scheme:dark]" />
+                          </div>
+                        </>
+                      ) : (
+                        <div className="col-span-2 border-t border-white/10 mt-2 pt-2">
+                          <p className="text-[10px] text-white/50 uppercase font-semibold mb-0.5">Valid Till</p>
+                          <p className="font-medium text-sm text-primary">{member.expiryDate ? format(parseISO(member.expiryDate), 'MMM d, yyyy') : 'N/A'}</p>
+                        </div>
+                      )}
 
                       {/* Payment History Section */}
                       <div className="col-span-2 mt-4 pt-4 border-t border-white/10">

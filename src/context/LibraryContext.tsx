@@ -666,7 +666,6 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     if (!activeLibraryId) throw new Error('Cannot register payment: No active library session');
     try {
       let payload: any = { ...payment };
-      delete payload.startDate; // known missing column
 
       let attempts = 0;
       let finalData = null;
@@ -711,7 +710,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       const { data: paymentToDel, error: payErr } = await supabase.from('payments').select('*').eq('id', id).eq('libraryId', activeLibraryId).single();
       if (payErr || !paymentToDel) throw new Error('Payment not found');
 
-      const { id: paymentId, startDate, ...paymentData } = paymentToDel;
+      const { id: paymentId, ...paymentData } = paymentToDel;
 
       const { data: insertedDeletedPayment, error: insertError } = await supabase.from('deleted_payments').insert([{
         ...paymentData,
@@ -736,21 +735,11 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         today.setHours(0, 0, 0, 0);
 
         let newExpiry = new Date(member.expiryDate);
-        if (paymentToDel.startDate) {
-          // If we know the exact start date, rolling back is simply setting it just before the start date (or keeping current if other payments cover it)
-          // A naive rollback simply subtracts the days, but ideally you'd look at the previous payment.
-          // Since we can't reliably know the exact previous expiry without an event log, we subtract the days.
-          if (paymentToDel.customDays && paymentToDel.customDays > 0) {
-            newExpiry = subDays(newExpiry, paymentToDel.customDays);
-          } else if (paymentToDel.months > 0) {
-            newExpiry = subMonths(newExpiry, paymentToDel.months);
-          }
-        } else {
-          if (paymentToDel.customDays && paymentToDel.customDays > 0) {
-            newExpiry = subDays(newExpiry, paymentToDel.customDays);
-          } else if (paymentToDel.months > 0) {
-            newExpiry = subMonths(newExpiry, paymentToDel.months);
-          }
+        // Subtract the duration this payment added
+        if (paymentToDel.customDays && paymentToDel.customDays > 0) {
+          newExpiry = subDays(newExpiry, paymentToDel.customDays);
+        } else if (paymentToDel.months > 0) {
+          newExpiry = subMonths(newExpiry, paymentToDel.months);
         }
 
         const newExpiryFormatted = format(newExpiry, 'yyyy-MM-dd');
@@ -799,7 +788,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       
       if (password !== expectedPin) {
         toast.error('Invalid administrative PIN');
-        throw new Error('Invalid PIN');
+        return;
       }
 
       const { error } = await supabase.from('deleted_payments').delete().eq('libraryId', activeLibraryId);
@@ -818,7 +807,6 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     if (!activeLibraryId) throw new Error('No active library session');
     try {
       let safeUpdates: any = { ...updates };
-      delete safeUpdates.startDate;
       
       let attempts = 0;
       
