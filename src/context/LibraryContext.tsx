@@ -631,6 +631,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.from('members').update(updateData).eq('id', id).eq('libraryId', activeLibraryId);
       if (error) throw error;
 
+      setMembers(prev => prev.map(m => m.id === id ? { ...m, ...updateData } : m));
+
     } catch (error) {
       console.error('Error upgrading member:', error);
       toast.error('Failed to upgrade member');
@@ -641,13 +643,15 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const addPayment = useCallback(async (payment: Omit<Payment, 'id' | 'libraryId'>) => {
     if (!activeLibraryId) throw new Error('Cannot register payment: No active library session');
     try {
+      // Safely strip startDate from payload to prevent crashes on un-migrated DBs
+      const { startDate, ...payload } = payment;
       const { data, error } = await supabase.from('payments').insert([{
-        ...payment,
+        ...payload,
         libraryId: activeLibraryId
       }]).select().single();
       if (error) throw error;
-      setPayments(prev => [...prev, data as Payment]);
-    } catch (error) {
+      setPayments(prev => [{ ...data, startDate } as Payment, ...prev]);
+    } catch (error: any) {
       console.error('Error adding payment:', error);
       toast.error('Failed to add payment');
       throw error;
@@ -660,7 +664,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       const { data: paymentToDel, error: payErr } = await supabase.from('payments').select('*').eq('id', id).eq('libraryId', activeLibraryId).single();
       if (payErr || !paymentToDel) throw new Error('Payment not found');
 
-      const { id: paymentId, ...paymentData } = paymentToDel;
+      const { id: paymentId, startDate, ...paymentData } = paymentToDel;
 
       const { data: insertedDeletedPayment, error: insertError } = await supabase.from('deleted_payments').insert([{
         ...paymentData,
@@ -766,9 +770,11 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const updatePayment = useCallback(async (id: string, updates: Partial<Payment>) => {
     if (!activeLibraryId) throw new Error('No active library session');
     try {
+      const { startDate, ...safeUpdates } = updates;
+      
       const { error } = await supabase
         .from('payments')
-        .update(updates)
+        .update(safeUpdates)
         .eq('id', id)
         .eq('libraryId', activeLibraryId);
 
